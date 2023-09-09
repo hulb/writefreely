@@ -18,7 +18,7 @@ ci: deps
 	cd cmd/writefreely; $(GOBUILD) -v
 
 build: deps
-	cd cmd/writefreely; $(GOBUILD) -v -tags='netgo sqlite'
+	cd cmd/writefreely; $(GOBUILD) -v -tags='sqlite'
 
 build-no-sqlite: deps-no-sqlite
 	cd cmd/writefreely; $(GOBUILD) -v -tags='netgo' -o $(BINARY_NAME)
