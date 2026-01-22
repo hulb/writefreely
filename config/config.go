@@ -231,7 +231,7 @@ func (cfg *Config) UseMySQL(fresh bool) {
 
 // UseSQLite resets the Config's Database to use default values for a SQLite setup.
 func (cfg *Config) UseSQLite(fresh bool) {
-	cfg.Database.Type = "sqlite3"
+	cfg.Database.Type = "sqlite"
 	if fresh {
 		cfg.Database.FileName = "writefreely.db"
 	}

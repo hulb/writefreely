@@ -46,12 +46,14 @@ const (
 	mySQLErrTooManyConns = 1040
 	mySQLErrMaxUserConns = 1203
 
+	sqliteErrDuplicateKey = 2067
+
 	driverMySQL  = "mysql"
-	driverSQLite = "sqlite3"
+	driverSQLite = "sqlite"
 )
 
 var (
-	SQLiteEnabled bool
+	SQLiteEnabled = true
 )
 
 type writestore interface {

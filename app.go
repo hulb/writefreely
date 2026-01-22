@@ -854,17 +854,17 @@ func connectToDatabase(app *App) {
 		db.SetMaxOpenConns(50)
 	} else if app.cfg.Database.Type == driverSQLite {
 		if !SQLiteEnabled {
-			log.Error("Invalid database type '%s'. Binary wasn't compiled with SQLite3 support.", app.cfg.Database.Type)
+			log.Error("Invalid database type '%s'. Binary wasn't compiled with SQLite support.", app.cfg.Database.Type)
 			os.Exit(1)
 		}
 		if app.cfg.Database.FileName == "" {
 			log.Error("SQLite database filename value in config.ini is empty.")
 			os.Exit(1)
 		}
-		db, err = sql.Open("sqlite3_with_regex", app.cfg.Database.FileName+"?parseTime=true&cached=shared")
+		db, err = sql.Open("sqlite", app.cfg.Database.FileName+"?parseTime=true&cached=shared")
 		db.SetMaxOpenConns(2)
 	} else {
-		log.Error("Invalid database type '%s'. Only 'mysql' and 'sqlite3' are supported right now.", app.cfg.Database.Type)
+		log.Error("Invalid database type '%s'. Only 'mysql' and 'sqlite' are supported right now.", app.cfg.Database.Type)
 		os.Exit(1)
 	}
 	if err != nil {

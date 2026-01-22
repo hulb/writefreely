@@ -1,5 +1,5 @@
-//go:build !sqlite && !wflib
-// +build !sqlite,!wflib
+//go:build !wflib
+// +build !wflib
 
 /*
  * Copyright © 2019-2020 Musing Studio LLC.
@@ -16,12 +16,17 @@ package writefreely
 import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/writeas/web-core/log"
+	"modernc.org/sqlite"
 )
 
 func (db *datastore) isDuplicateKeyErr(err error) bool {
 	if db.driverName == driverMySQL {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 			return mysqlErr.Number == mySQLErrDuplicateKey
+		}
+	} else if db.driverName == driverSQLite {
+		if err, ok := err.(*sqlite.Error); ok {
+			return err.Code() == sqliteErrDuplicateKey
 		}
 	} else {
 		log.Error("isDuplicateKeyErr: failed check for unrecognized driver '%s'", db.driverName)
