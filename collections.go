@@ -462,7 +462,7 @@ func newCollection(app *App, w http.ResponseWriter, r *http.Request) error {
 		missingParams += "`title` "
 	}
 	if missingParams != "" {
-		return impart.HTTPError{http.StatusBadRequest, fmt.Sprintf("Parameter(s) %srequired.", missingParams)}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: fmt.Sprintf("Parameter(s) %srequired.", missingParams)}
 	}
 
 	var userID int64
@@ -493,7 +493,7 @@ func newCollection(app *App, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if !author.IsValidUsername(app.cfg, c.Alias) {
-		return impart.HTTPError{http.StatusPreconditionFailed, "Collection alias isn't valid."}
+		return impart.HTTPError{Status: http.StatusPreconditionFailed, Message: "Collection alias isn't valid."}
 	}
 
 	coll, err := app.db.CreateCollection(app.cfg, c.Alias, c.Title, userID)
@@ -509,7 +509,7 @@ func newCollection(app *App, w http.ResponseWriter, r *http.Request) error {
 	}
 	redirectTo := "/me/c/"
 	// TODO: redirect to pad when necessary
-	return impart.HTTPError{http.StatusFound, redirectTo}
+	return impart.HTTPError{Status: http.StatusFound, Message: redirectTo}
 }
 
 func apiCheckCollectionPermissions(app *App, r *http.Request, c *Collection) (int64, error) {
@@ -551,7 +551,7 @@ func fetchCollection(app *App, w http.ResponseWriter, r *http.Request) error {
 	// Redirect users who aren't requesting JSON
 	reqJSON := IsJSON(r)
 	if !reqJSON {
-		return impart.HTTPError{http.StatusFound, c.CanonicalURL()}
+		return impart.HTTPError{Status: http.StatusFound, Message: c.CanonicalURL()}
 	}
 
 	// Check permissions
@@ -705,12 +705,12 @@ func (c *CollectionObj) CanShowScript() bool {
 	return false
 }
 
-func processCollectionRequest(cr *collectionReq, vars map[string]string, w http.ResponseWriter, r *http.Request) error {
+func processCollectionRequest(cr *collectionReq, vars map[string]string, _ http.ResponseWriter, _ *http.Request) error {
 	cr.prefix = vars["prefix"]
 	cr.alias = vars["collection"]
 	// Normalize the URL, redirecting user to consistent post URL
 	if cr.alias != strings.ToLower(cr.alias) {
-		return impart.HTTPError{http.StatusMovedPermanently, fmt.Sprintf("/%s/", strings.ToLower(cr.alias))}
+		return impart.HTTPError{Status: http.StatusMovedPermanently, Message: fmt.Sprintf("/%s/", strings.ToLower(cr.alias))}
 	}
 
 	return nil
@@ -747,13 +747,13 @@ func processCollectionPermissions(app *App, cr *collectionReq, u *User, w http.R
 					// Alias is within post ID range, so just be sure this isn't a post
 					if app.db.PostIDExists(cr.alias) {
 						// TODO: use StatusFound for vanity post URLs when we implement them
-						return nil, impart.HTTPError{http.StatusMovedPermanently, "/" + cr.alias}
+						return nil, impart.HTTPError{Status: http.StatusMovedPermanently, Message: "/" + cr.alias}
 					}
 				}
 				// Redirect if necessary
 				newAlias := app.db.GetCollectionRedirect(cr.alias)
 				if newAlias != "" {
-					return nil, impart.HTTPError{http.StatusFound, "/" + newAlias + "/"}
+					return nil, impart.HTTPError{Status: http.StatusFound, Message: "/" + newAlias + "/"}
 				}
 			}
 		}
@@ -824,7 +824,7 @@ func processCollectionPermissions(app *App, cr *collectionReq, u *User, w http.R
 	return c, nil
 }
 
-func checkUserForCollection(app *App, cr *collectionReq, r *http.Request, isPostReq bool) (*User, error) {
+func checkUserForCollection(app *App, _ *collectionReq, r *http.Request, _ bool) (*User, error) {
 	u := getUserSession(app, r)
 	return u, nil
 }
@@ -913,7 +913,7 @@ func handleViewCollection(app *App, w http.ResponseWriter, r *http.Request) erro
 		if !app.cfg.App.SingleUser {
 			redirURL = fmt.Sprintf("/%s%s%s", cr.prefix, coll.Alias, redirURL)
 		}
-		return impart.HTTPError{http.StatusFound, redirURL}
+		return impart.HTTPError{Status: http.StatusFound, Message: redirURL}
 	}
 
 	coll.Posts, _ = app.db.GetPosts(app.cfg, c, page, cr.isCollOwner, false, false, "")
@@ -1058,7 +1058,7 @@ func handleViewCollectionTag(app *App, w http.ResponseWriter, r *http.Request) e
 		if !app.cfg.App.SingleUser {
 			redirURL = fmt.Sprintf("/%s%s%s", cr.prefix, coll.Alias, redirURL)
 		}
-		return impart.HTTPError{http.StatusFound, redirURL}
+		return impart.HTTPError{Status: http.StatusFound, Message: redirURL}
 	}
 
 	coll.Posts, _ = app.db.GetPostsTagged(app.cfg, c, tag, page, cr.isCollOwner)
@@ -1156,7 +1156,7 @@ func handleViewCollectionLang(app *App, w http.ResponseWriter, r *http.Request) 
 		if !app.cfg.App.SingleUser {
 			redirURL = fmt.Sprintf("/%s%s%s", cr.prefix, coll.Alias, redirURL)
 		}
-		return impart.HTTPError{http.StatusFound, redirURL}
+		return impart.HTTPError{Status: http.StatusFound, Message: redirURL}
 	}
 
 	coll.Posts, _ = app.db.GetLangPosts(app.cfg, c, lang, page, cr.isCollOwner)
@@ -1239,7 +1239,7 @@ func handleCollectionPostRedirect(app *App, w http.ResponseWriter, r *http.Reque
 	if !app.cfg.App.SingleUser {
 		loc = fmt.Sprintf("/%s/%s", cr.alias, slug)
 	}
-	return impart.HTTPError{http.StatusFound, loc}
+	return impart.HTTPError{Status: http.StatusFound, Message: loc}
 }
 
 func existingCollection(app *App, w http.ResponseWriter, r *http.Request) error {
@@ -1315,7 +1315,7 @@ func existingCollection(app *App, w http.ResponseWriter, r *http.Request) error 
 				return err
 			}
 			addSessionFlash(app, w, r, err.Message, nil)
-			return impart.HTTPError{http.StatusFound, "/me/c/" + collAlias}
+			return impart.HTTPError{Status: http.StatusFound, Message: "/me/c/" + collAlias}
 		} else {
 			log.Error("Couldn't update collection: %v\n", err)
 			return err
@@ -1328,7 +1328,7 @@ func existingCollection(app *App, w http.ResponseWriter, r *http.Request) error 
 	}
 
 	addSessionFlash(app, w, r, "Blog updated!", nil)
-	return impart.HTTPError{http.StatusFound, "/me/c/" + collAlias}
+	return impart.HTTPError{Status: http.StatusFound, Message: "/me/c/" + collAlias}
 }
 
 // collectionAliasFromReq takes a request and returns the collection alias
@@ -1375,10 +1375,10 @@ func handleWebCollectionUnlock(app *App, w http.ResponseWriter, r *http.Request)
 	}
 
 	if readReq.Alias == "" {
-		return impart.HTTPError{http.StatusBadRequest, "Need a collection `alias` to read."}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: "Need a collection `alias` to read."}
 	}
 	if readReq.Pass == "" {
-		return impart.HTTPError{http.StatusBadRequest, "Please supply a password."}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: "Please supply a password."}
 	}
 
 	var collHashedPass []byte
@@ -1386,13 +1386,13 @@ func handleWebCollectionUnlock(app *App, w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Error("No collectionpassword found when trying to read collection %s", readReq.Alias)
-			return impart.HTTPError{http.StatusInternalServerError, "Something went very wrong. The humans have been alerted."}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Something went very wrong. The humans have been alerted."}
 		}
 		return err
 	}
 
 	if !auth.Authenticated(collHashedPass, []byte(readReq.Pass)) {
-		return impart.HTTPError{http.StatusUnauthorized, "Incorrect password."}
+		return impart.HTTPError{Status: http.StatusUnauthorized, Message: "Incorrect password."}
 	}
 
 	// Success; set cookie
@@ -1409,7 +1409,7 @@ func handleWebCollectionUnlock(app *App, w http.ResponseWriter, r *http.Request)
 	if !app.cfg.App.SingleUser {
 		next = "/" + readReq.Alias + next
 	}
-	return impart.HTTPError{http.StatusFound, next}
+	return impart.HTTPError{Status: http.StatusFound, Message: next}
 }
 
 func isAuthorizedForCollection(app *App, alias string, r *http.Request) bool {
@@ -1458,5 +1458,5 @@ func handleLogOutCollection(app *App, w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		addSessionFlash(app, w, r, "Logging out failed. Try clearing cookies for this site, instead.", nil)
 	}
-	return impart.HTTPError{http.StatusFound, c.CanonicalURL()}
+	return impart.HTTPError{Status: http.StatusFound, Message: c.CanonicalURL()}
 }

@@ -191,7 +191,7 @@ func (h *Handler) Admin(f userHandlerFunc) http.HandlerFunc {
 
 			u := getUserSession(h.app.App(), r)
 			if u == nil || !u.IsAdmin() {
-				err := impart.HTTPError{http.StatusNotFound, ""}
+				err := impart.HTTPError{Status: http.StatusNotFound, Message: ""}
 				status = err.Status
 				return err
 			}
@@ -229,7 +229,7 @@ func (h *Handler) AdminApper(f userApperHandlerFunc) http.HandlerFunc {
 
 			u := getUserSession(h.app.App(), r)
 			if u == nil || !u.IsAdmin() {
-				err := impart.HTTPError{http.StatusNotFound, ""}
+				err := impart.HTTPError{Status: http.StatusNotFound, Message: ""}
 				status = err.Status
 				return err
 			}
@@ -322,7 +322,7 @@ func (h *Handler) UserAll(web bool, f userHandlerFunc, a authFunc) http.HandlerF
 			defer func() {
 				if e := recover(); e != nil {
 					log.Error("%s: %s", e, debug.Stack())
-					impart.WriteError(w, impart.HTTPError{http.StatusInternalServerError, "Something didn't work quite right."})
+					impart.WriteError(w, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Something didn't work quite right."})
 					status = 500
 				}
 
@@ -370,7 +370,7 @@ func (h *Handler) RedirectOnErr(f handlerFunc, loc string) handlerFunc {
 					return ie
 				}
 			}
-			return impart.HTTPError{http.StatusFound, loc}
+			return impart.HTTPError{Status: http.StatusFound, Message: loc}
 		}
 		return nil
 	}
@@ -380,7 +380,7 @@ func (h *Handler) Page(n string) http.HandlerFunc {
 	return h.Web(func(app *App, w http.ResponseWriter, r *http.Request) error {
 		t, ok := pages[n]
 		if !ok {
-			return impart.HTTPError{http.StatusNotFound, "Page not found."}
+			return impart.HTTPError{Status: http.StatusNotFound, Message: "Page not found."}
 		}
 
 		sp := pageForReq(app, r)
@@ -428,7 +428,7 @@ func (h *Handler) WebErrors(f handlerFunc, ul UserLevelFunc) http.HandlerFunc {
 				if ul(h.app.App().cfg) == UserLevelNoneRequiredType && gotUser {
 					to := correctPageFromLoginAttempt(r)
 					log.Info("Handler: Required NO user, but got one. Redirecting to %s", to)
-					err := impart.HTTPError{http.StatusFound, to}
+					err := impart.HTTPError{Status: http.StatusFound, Message: to}
 					status = err.Status
 					return err
 				} else if ul(h.app.App().cfg) == UserLevelUserType && !gotUser {
@@ -447,7 +447,7 @@ func (h *Handler) WebErrors(f handlerFunc, ul UserLevelFunc) http.HandlerFunc {
 				status = httpErr.Status
 				if status < 300 || status > 399 {
 					addSessionFlash(h.app.App(), w, r, httpErr.Message, session)
-					return impart.HTTPError{http.StatusFound, r.Referer()}
+					return impart.HTTPError{Status: http.StatusFound, Message: r.Referer()}
 				}
 			} else {
 				e := fmt.Sprintf("[Web handler] 500: %v", err)
@@ -517,7 +517,7 @@ func (h *Handler) Web(f handlerFunc, ul UserLevelFunc) http.HandlerFunc {
 				if ul(h.app.App().cfg) == UserLevelNoneRequiredType && gotUser {
 					to := correctPageFromLoginAttempt(r)
 					log.Info("Handler: Required NO user, but got one. Redirecting to %s", to)
-					err := impart.HTTPError{http.StatusFound, to}
+					err := impart.HTTPError{Status: http.StatusFound, Message: to}
 					status = err.Status
 					return err
 				} else if ul(h.app.App().cfg) == UserLevelUserType && !gotUser {
@@ -557,7 +557,7 @@ func (h *Handler) All(f handlerFunc) http.HandlerFunc {
 			defer func() {
 				if e := recover(); e != nil {
 					log.Error("%s:\n%s", e, debug.Stack())
-					impart.WriteError(w, impart.HTTPError{http.StatusInternalServerError, "Something didn't work quite right."})
+					impart.WriteError(w, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Something didn't work quite right."})
 					status = 500
 				}
 
@@ -622,7 +622,7 @@ func (h *Handler) OAuth(f handlerFunc) http.HandlerFunc {
 			defer func() {
 				if e := recover(); e != nil {
 					log.Error("%s:\n%s", e, debug.Stack())
-					impart.WriteError(w, impart.HTTPError{http.StatusInternalServerError, "Something didn't work quite right."})
+					impart.WriteError(w, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Something didn't work quite right."})
 					status = 500
 				}
 
@@ -652,7 +652,7 @@ func (h *Handler) AllReader(f handlerFunc) http.HandlerFunc {
 			defer func() {
 				if e := recover(); e != nil {
 					log.Error("%s:\n%s", e, debug.Stack())
-					impart.WriteError(w, impart.HTTPError{http.StatusInternalServerError, "Something didn't work quite right."})
+					impart.WriteError(w, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Something didn't work quite right."})
 					status = 500
 				}
 
@@ -766,7 +766,7 @@ func (h *Handler) Redirect(url string, ul UserLevelFunc) http.HandlerFunc {
 				if ul(h.app.App().cfg) == UserLevelNoneRequiredType && gotUser {
 					to := correctPageFromLoginAttempt(r)
 					log.Info("Handler: Required NO user, but got one. Redirecting to %s", to)
-					err := impart.HTTPError{http.StatusFound, to}
+					err := impart.HTTPError{Status: http.StatusFound, Message: to}
 					status = err.Status
 					return err
 				} else if ul(h.app.App().cfg) == UserLevelUserType && !gotUser {
@@ -849,11 +849,9 @@ func (h *Handler) handleHTTPError(w http.ResponseWriter, r *http.Request, err er
 			h.errors.Blank.ExecuteTemplate(w, "base", p)
 			return
 		}
-		impart.WriteError(w, err)
-		return
 	}
 
-	impart.WriteError(w, impart.HTTPError{http.StatusInternalServerError, "This is an unhelpful error message for a miscellaneous internal error."})
+	impart.WriteError(w, impart.HTTPError{Status: http.StatusInternalServerError, Message: "This is an unhelpful error message for a miscellaneous internal error."})
 }
 
 func (h *Handler) handleError(w http.ResponseWriter, r *http.Request, err error) {
@@ -874,13 +872,13 @@ func (h *Handler) handleError(w http.ResponseWriter, r *http.Request, err error)
 	}
 
 	if IsJSON(r) {
-		impart.WriteError(w, impart.HTTPError{http.StatusInternalServerError, "This is an unhelpful error message for a miscellaneous internal error."})
+		impart.WriteError(w, impart.HTTPError{Status: http.StatusInternalServerError, Message: "This is an unhelpful error message for a miscellaneous internal error."})
 		return
 	}
 	h.errors.InternalServerError.ExecuteTemplate(w, "base", pageForReq(h.app.App(), r))
 }
 
-func (h *Handler) handleTextError(w http.ResponseWriter, r *http.Request, err error) {
+func (h *Handler) handleTextError(w http.ResponseWriter, _ *http.Request, err error) {
 	if err == nil {
 		return
 	}
@@ -900,7 +898,7 @@ func (h *Handler) handleTextError(w http.ResponseWriter, r *http.Request, err er
 	fmt.Fprintf(w, "This is an unhelpful error message for a miscellaneous internal error.")
 }
 
-func (h *Handler) handleOAuthError(w http.ResponseWriter, r *http.Request, err error) {
+func (h *Handler) handleOAuthError(w http.ResponseWriter, _ *http.Request, err error) {
 	if err == nil {
 		return
 	}
@@ -915,7 +913,7 @@ func (h *Handler) handleOAuthError(w http.ResponseWriter, r *http.Request, err e
 		return
 	}
 
-	impart.WriteOAuthError(w, impart.HTTPError{http.StatusInternalServerError, "This is an unhelpful error message for a miscellaneous internal error."})
+	impart.WriteOAuthError(w, impart.HTTPError{Status: http.StatusInternalServerError, Message: "This is an unhelpful error message for a miscellaneous internal error."})
 	return
 }
 

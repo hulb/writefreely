@@ -61,12 +61,12 @@ func handleWebSignup(app *App, w http.ResponseWriter, r *http.Request) error {
 			if session != nil {
 				session.AddFlash(err.Message)
 				session.Save(r, w)
-				return impart.HTTPError{http.StatusFound, to}
+				return impart.HTTPError{Status: http.StatusFound, Message: to}
 			}
 		}
 		return err
 	}
-	return impart.HTTPError{http.StatusFound, to}
+	return impart.HTTPError{Status: http.StatusFound, Message: to}
 }
 
 // { "username": "asdf" }
@@ -86,7 +86,7 @@ func handleUsernameCheck(app *App, w http.ResponseWriter, r *http.Request) error
 			return ErrBadFormData
 		}
 	} else {
-		return impart.HTTPError{http.StatusNotAcceptable, "Must be JSON request"}
+		return impart.HTTPError{Status: http.StatusNotAcceptable, Message: "Must be JSON request"}
 	}
 
 	// Check if username is okay
@@ -97,10 +97,10 @@ func handleUsernameCheck(app *App, w http.ResponseWriter, r *http.Request) error
 			// Username was provided, but didn't convert into valid latin characters
 			errMsg += " - must have at least 2 letters or numbers"
 		}
-		return impart.HTTPError{http.StatusBadRequest, errMsg + "."}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: errMsg + "."}
 	}
 	if app.db.PostIDExists(finalUsername) {
-		return impart.HTTPError{http.StatusConflict, "Username is already taken."}
+		return impart.HTTPError{Status: http.StatusConflict, Message: "Username is already taken."}
 	}
 	var un string
 	err := app.db.QueryRow("SELECT username FROM users WHERE username = ?", finalUsername).Scan(&un)
@@ -109,11 +109,11 @@ func handleUsernameCheck(app *App, w http.ResponseWriter, r *http.Request) error
 		return impart.WriteSuccess(w, finalUsername, http.StatusOK)
 	case err != nil:
 		log.Error("Couldn't SELECT username: %v", err)
-		return impart.HTTPError{http.StatusInternalServerError, "We messed up."}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: "We messed up."}
 	}
 
 	// Username was found, so it's taken
-	return impart.HTTPError{http.StatusConflict, "Username is already taken."}
+	return impart.HTTPError{Status: http.StatusConflict, Message: "Username is already taken."}
 }
 
 func getValidUsername(app *App, reqName, prevName string) (string, *impart.HTTPError) {
@@ -125,13 +125,13 @@ func getValidUsername(app *App, reqName, prevName string) (string, *impart.HTTPE
 			// Username was provided, but didn't convert into valid latin characters
 			errMsg += " - must have at least 2 letters or numbers"
 		}
-		return "", &impart.HTTPError{http.StatusBadRequest, errMsg + "."}
+		return "", &impart.HTTPError{Status: http.StatusBadRequest, Message: errMsg + "."}
 	}
 	if finalUsername == prevName {
-		return "", &impart.HTTPError{http.StatusNotModified, "Username unchanged."}
+		return "", &impart.HTTPError{Status: http.StatusNotModified, Message: "Username unchanged."}
 	}
 	if app.db.PostIDExists(finalUsername) {
-		return "", &impart.HTTPError{http.StatusConflict, "Username is already taken."}
+		return "", &impart.HTTPError{Status: http.StatusConflict, Message: "Username is already taken."}
 	}
 	var un string
 	err := app.db.QueryRow("SELECT username FROM users WHERE username = ?", finalUsername).Scan(&un)
@@ -140,9 +140,9 @@ func getValidUsername(app *App, reqName, prevName string) (string, *impart.HTTPE
 		return finalUsername, nil
 	case err != nil:
 		log.Error("Couldn't SELECT username: %v", err)
-		return "", &impart.HTTPError{http.StatusInternalServerError, "We messed up."}
+		return "", &impart.HTTPError{Status: http.StatusInternalServerError, Message: "We messed up."}
 	}
 
 	// Username was found, so it's taken
-	return "", &impart.HTTPError{http.StatusConflict, "Username is already taken."}
+	return "", &impart.HTTPError{Status: http.StatusConflict, Message: "Username is already taken."}
 }

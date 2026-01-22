@@ -233,7 +233,7 @@ func postTitle(content, friendlyId string) string {
 
 // TODO: fix duplicated code from postTitle. postTitle is a widely used func we
 // don't have time to investigate right now.
-func friendlyPostTitle(content, friendlyId string) string {
+func friendlyPostTitle(content, _ string) string {
 	const maxTitleLen = 80
 
 	content = stripHTMLWithoutEscaping(content)

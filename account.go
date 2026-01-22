@@ -82,7 +82,7 @@ const (
 	loginAttemptExpiration = 3 * time.Second
 )
 
-var actuallyUsernameReg = regexp.MustCompile("username is actually ([a-z0-9\\-]+)\\. Please try that, instead")
+var actuallyUsernameReg = regexp.MustCompile(`username is actually ([a-z0-9\\-]+)\\. Please try that, instead`)
 
 func apiSignup(app *App, w http.ResponseWriter, r *http.Request) error {
 	_, err := signup(app, w, r)
@@ -134,10 +134,10 @@ func signupWithRegistration(app *App, signup userRegistration, w http.ResponseWr
 
 	// Validate required params (alias)
 	if signup.Alias == "" {
-		return nil, impart.HTTPError{http.StatusBadRequest, "A username is required."}
+		return nil, impart.HTTPError{Status: http.StatusBadRequest, Message: "A username is required."}
 	}
 	if signup.Pass == "" {
-		return nil, impart.HTTPError{http.StatusBadRequest, "A password is required."}
+		return nil, impart.HTTPError{Status: http.StatusBadRequest, Message: "A password is required."}
 	}
 	var desiredUsername string
 	if signup.Normalize {
@@ -150,13 +150,13 @@ func signupWithRegistration(app *App, signup userRegistration, w http.ResponseWr
 	}
 	if !author.IsValidUsername(app.cfg, signup.Alias) {
 		// Ensure the username is syntactically correct.
-		return nil, impart.HTTPError{http.StatusPreconditionFailed, "Username is reserved or isn't valid. It must be at least 3 characters long, and can only include letters, numbers, and hyphens."}
+		return nil, impart.HTTPError{Status: http.StatusPreconditionFailed, Message: "Username is reserved or isn't valid. It must be at least 3 characters long, and can only include letters, numbers, and hyphens."}
 	}
 
 	// Handle empty optional params
 	hashedPass, err := auth.HashPass([]byte(signup.Pass))
 	if err != nil {
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Could not create password hash."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Could not create password hash."}
 	}
 
 	// Create struct to insert
@@ -203,13 +203,12 @@ func signupWithRegistration(app *App, signup userRegistration, w http.ResponseWr
 
 	var coll *Collection
 	if signup.Monetization != "" {
-		if coll == nil {
-			coll, err = app.db.GetCollection(signup.Alias)
-			if err != nil {
-				log.Error("Unable to get new collection '%s' for monetization on signup: %v", signup.Alias, err)
-				return nil, err
-			}
+		coll, err = app.db.GetCollection(signup.Alias)
+		if err != nil {
+			log.Error("Unable to get new collection '%s' for monetization on signup: %v", signup.Alias, err)
+			return nil, err
 		}
+
 		err = app.db.SetCollectionAttribute(coll.ID, "monetization_pointer", signup.Monetization)
 		if err != nil {
 			log.Error("Unable to add monetization on signup: %v", err)
@@ -222,7 +221,7 @@ func signupWithRegistration(app *App, signup userRegistration, w http.ResponseWr
 	if reqJSON && !signup.Web {
 		token, err = app.db.GetAccessToken(u.ID)
 		if err != nil {
-			return nil, impart.HTTPError{http.StatusInternalServerError, "Could not create access token. Try re-authenticating."}
+			return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Could not create access token. Try re-authenticating."}
 		}
 		resUser.AccessToken = token
 	} else {
@@ -263,15 +262,15 @@ func viewLogout(app *App, w http.ResponseWriter, r *http.Request) error {
 		err = session.Save(r, w)
 		if err != nil {
 			log.Error("Couldn't save session on logout: %v", err)
-			return impart.HTTPError{http.StatusInternalServerError, "Unable to save cookie session."}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to save cookie session."}
 		}
 
-		return impart.HTTPError{http.StatusFound, "/"}
+		return impart.HTTPError{Status: http.StatusFound, Message: "/"}
 	}
 
-	u, err = app.db.GetUserByID(u.ID)
+	_, err = app.db.GetUserByID(u.ID)
 	if err != nil && err != ErrUserNotFound {
-		return impart.HTTPError{http.StatusInternalServerError, "Unable to fetch user information."}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to fetch user information."}
 	}
 
 	session.Options.MaxAge = -1
@@ -279,10 +278,10 @@ func viewLogout(app *App, w http.ResponseWriter, r *http.Request) error {
 	err = session.Save(r, w)
 	if err != nil {
 		log.Error("Couldn't save session on logout: %v", err)
-		return impart.HTTPError{http.StatusInternalServerError, "Unable to save cookie session."}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to save cookie session."}
 	}
 
-	return impart.HTTPError{http.StatusFound, "/"}
+	return impart.HTTPError{Status: http.StatusFound, Message: "/"}
 }
 
 func handleAPILogout(app *App, w http.ResponseWriter, r *http.Request) error {
@@ -383,7 +382,7 @@ func webLogin(app *App, w http.ResponseWriter, r *http.Request) error {
 		}
 
 		log.Error("Unable to login: %v", err)
-		return impart.HTTPError{http.StatusTemporaryRedirect, redirectTo}
+		return impart.HTTPError{Status: http.StatusTemporaryRedirect, Message: redirectTo}
 	}
 
 	return nil
@@ -429,7 +428,7 @@ func login(app *App, w http.ResponseWriter, r *http.Request) error {
 		u, err = app.db.GetUserByID(userID)
 		if err != nil {
 			log.Error("Unable to fetch user on one-time token login: %v", err)
-			return impart.HTTPError{http.StatusInternalServerError, "There was an error retrieving the user you want."}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to retrieve requested user."}
 		}
 		log.Info("Login: Got user via token")
 	} else {
@@ -463,14 +462,14 @@ func login(app *App, w http.ResponseWriter, r *http.Request) error {
 			if signin.Web {
 				msg = "A username is required."
 			}
-			return impart.HTTPError{http.StatusBadRequest, msg}
+			return impart.HTTPError{Status: http.StatusBadRequest, Message: msg}
 		}
 		if !signin.EmailLogin && signin.Pass == "" {
 			msg := "Parameter `pass` required."
 			if signin.Web {
 				msg = "A password is required."
 			}
-			return impart.HTTPError{http.StatusBadRequest, msg}
+			return impart.HTTPError{Status: http.StatusBadRequest, Message: msg}
 		}
 
 		// Prevent excessive login attempts on the same account
@@ -482,7 +481,7 @@ func login(app *App, w http.ResponseWriter, r *http.Request) error {
 				if attemptExpTime, ok := attemptExp.(time.Time); ok {
 					if attemptExpTime.After(now) {
 						// This user attempted previously, and the period hasn't expired yet
-						return impart.HTTPError{http.StatusTooManyRequests, "You're doing that too much."}
+						return impart.HTTPError{Status: http.StatusTooManyRequests, Message: "You're doing that too much."}
 					} else {
 						// This user attempted previously, but the time expired; free up space
 						loginAttemptUsers.Delete(signin.Alias)
@@ -509,14 +508,14 @@ func login(app *App, w http.ResponseWriter, r *http.Request) error {
 			// so we can return a more helpful error message.
 			if hasPass, _ := app.db.IsUserPassSet(u.ID); !hasPass {
 				log.Info("Tried logging into %s, but no password or email.", signin.Alias)
-				return impart.HTTPError{http.StatusPreconditionFailed, "This user never added a password or email address. Please contact us for help."}
+				return impart.HTTPError{Status: http.StatusPreconditionFailed, Message: "This user never added a password or email address. Please contact us for help."}
 			}
 		}
 		if len(u.HashedPass) == 0 {
-			return impart.HTTPError{http.StatusUnauthorized, "This user never set a password. Perhaps try logging in via OAuth?"}
+			return impart.HTTPError{Status: http.StatusUnauthorized, Message: "This user never set a password. Perhaps try logging in via OAuth?"}
 		}
 		if !auth.Authenticated(u.HashedPass, []byte(signin.Pass)) {
-			return impart.HTTPError{http.StatusUnauthorized, "Incorrect password."}
+			return impart.HTTPError{Status: http.StatusUnauthorized, Message: "Incorrect password."}
 		}
 	}
 
@@ -533,7 +532,7 @@ func login(app *App, w http.ResponseWriter, r *http.Request) error {
 		}
 		if err != nil {
 			log.Error("Login: Unable to create access token: %v", err)
-			return impart.HTTPError{http.StatusInternalServerError, "Could not create access token. Try re-authenticating."}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Could not create access token. Try re-authenticating."}
 		}
 		resUser := getVerboseAuthUser(app, token, u, verbose)
 		return impart.WriteSuccess(w, resUser, http.StatusOK)
@@ -619,7 +618,7 @@ func viewExportPosts(app *App, w http.ResponseWriter, r *http.Request) ([]byte, 
 		var err error
 		u, err = app.db.GetUserByID(userID)
 		if err != nil {
-			return nil, filename, impart.HTTPError{http.StatusInternalServerError, "Unable to retrieve requested user."}
+			return nil, filename, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to retrieve requested user."}
 		}
 	} else {
 		// Use user cookie
@@ -819,7 +818,7 @@ func viewCollections(app *App, u *User, w http.ResponseWriter, r *http.Request) 
 	c, err := app.db.GetCollections(u, app.cfg.App.Host)
 	if err != nil {
 		log.Error("unable to fetch collections: %v", err)
-		return fmt.Errorf("No collections")
+		return fmt.Errorf("no collections")
 	}
 
 	f, _ := getSessionFlashes(app, w, r, nil)
@@ -997,7 +996,7 @@ func updatePassphrase(app *App, w http.ResponseWriter, r *http.Request) error {
 	newPass := r.FormValue("new")
 	// Ensure a new password is given (always required)
 	if newPass == "" {
-		return impart.HTTPError{http.StatusBadRequest, "Provide a new password."}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: "Provide a new password."}
 	}
 
 	userID, sudo := app.db.GetUserIDPrivilege(accessToken)
@@ -1008,13 +1007,13 @@ func updatePassphrase(app *App, w http.ResponseWriter, r *http.Request) error {
 	// Ensure a current password is given if the access token doesn't have sudo
 	// privileges.
 	if !sudo && curPass == "" {
-		return impart.HTTPError{http.StatusBadRequest, "Provide current password."}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: "Provide current password."}
 	}
 
 	// Hash the new password
 	hashedPass, err := auth.HashPass([]byte(newPass))
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, "Could not create password hash."}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Could not create password hash."}
 	}
 
 	// Do update
@@ -1161,13 +1160,13 @@ func viewSettings(app *App, u *User, w http.ResponseWriter, r *http.Request) err
 			return err
 		}
 		log.Error("Unable to get user for settings: %s", err)
-		return impart.HTTPError{http.StatusInternalServerError, "Unable to retrieve user data. The humans have been alerted."}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to retrieve user data. The humans have been alerted."}
 	}
 
 	passIsSet, err := app.db.IsUserPassSet(u.ID)
 	if err != nil {
 		log.Error("Unable to get isUserPassSet for settings: %s", err)
-		return impart.HTTPError{http.StatusInternalServerError, "Unable to retrieve user data. The humans have been alerted."}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to retrieve user data. The humans have been alerted."}
 	}
 
 	flashes, _ := getSessionFlashes(app, w, r, nil)
@@ -1181,7 +1180,7 @@ func viewSettings(app *App, u *User, w http.ResponseWriter, r *http.Request) err
 	oauthAccounts, err := app.db.GetOauthAccounts(r.Context(), u.ID)
 	if err != nil {
 		log.Error("Unable to get oauth accounts for settings: %s", err)
-		return impart.HTTPError{http.StatusInternalServerError, "Unable to retrieve user data. The humans have been alerted."}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to retrieve user data. The humans have been alerted."}
 	}
 	for idx, oauthAccount := range oauthAccounts {
 		switch oauthAccount.Provider {
@@ -1250,7 +1249,7 @@ func viewResetPassword(app *App, w http.ResponseWriter, r *http.Request) error {
 		// Show new password page
 		userID = app.db.GetUserFromPasswordReset(token)
 		if userID == 0 {
-			return impart.HTTPError{http.StatusNotFound, ""}
+			return impart.HTTPError{Status: http.StatusNotFound, Message: ""}
 		}
 		resetting = true
 	}
@@ -1273,7 +1272,7 @@ func viewResetPassword(app *App, w http.ResponseWriter, r *http.Request) error {
 			log.Error("Couldn't consume token %s for user %d!!! %s", token, userID, err)
 		}
 		addSessionFlash(app, w, r, "Your password was reset. Now you can log in below.", nil)
-		return impart.HTTPError{http.StatusFound, "/login"}
+		return impart.HTTPError{Status: http.StatusFound, Message: "/login"}
 	}
 
 	f, _ := getSessionFlashes(app, w, r, nil)
@@ -1308,7 +1307,7 @@ func doAutomatedPasswordChange(app *App, userID int64, newPass string) error {
 	// Do password reset
 	hashedPass, err := auth.HashPass([]byte(newPass))
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, "Could not create password hash."}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Could not create password hash."}
 	}
 
 	// Do update
@@ -1320,7 +1319,7 @@ func doAutomatedPasswordChange(app *App, userID int64, newPass string) error {
 }
 
 func handleResetPasswordInit(app *App, w http.ResponseWriter, r *http.Request) error {
-	returnLoc := impart.HTTPError{http.StatusFound, "/reset"}
+	returnLoc := impart.HTTPError{Status: http.StatusFound, Message: "/reset"}
 
 	if !app.cfg.Email.Enabled() {
 		// Email isn't configured, so there's nothing to do; send back to the reset form, where they'll get an explanation
@@ -1345,7 +1344,7 @@ func handleResetPasswordInit(app *App, w http.ResponseWriter, r *http.Request) e
 		return returnLoc
 	}
 	if u.Email.String == "" {
-		err := impart.HTTPError{http.StatusPreconditionFailed, "User doesn't have an email address. Please contact us (" + app.cfg.App.Host + "/contact) to reset your password."}
+		err := impart.HTTPError{Status: http.StatusPreconditionFailed, Message: "User doesn't have an email address. Please contact us (" + app.cfg.App.Host + "/contact) to reset your password."}
 		addSessionFlash(app, w, r, err.Message, nil)
 		return returnLoc
 	}
@@ -1419,14 +1418,14 @@ func loginViaEmail(app *App, alias, redirectTo string) error {
 		return ErrUserNotFound
 	}
 	if u.Email.String == "" {
-		return impart.HTTPError{http.StatusPreconditionFailed, "User doesn't have an email address. Log in with password, instead."}
+		return impart.HTTPError{Status: http.StatusPreconditionFailed, Message: "User doesn't have an email address. Log in with password, instead."}
 	}
 
 	// Generate one-time login token
 	t, err := app.db.GetTemporaryOneTimeAccessToken(u.ID, 60*15, true)
 	if err != nil {
 		log.Error("Unable to generate token for email login: %s", err)
-		return impart.HTTPError{http.StatusInternalServerError, "Unable to generate token."}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to generate token."}
 	}
 
 	// Send email
@@ -1496,28 +1495,28 @@ func getTempInfo(app *App, key string, r *http.Request, w http.ResponseWriter) s
 
 func handleUserDelete(app *App, u *User, w http.ResponseWriter, r *http.Request) error {
 	if !app.cfg.App.OpenDeletion {
-		return impart.HTTPError{http.StatusForbidden, "Open account deletion is disabled on this instance."}
+		return impart.HTTPError{Status: http.StatusForbidden, Message: "Open account deletion is disabled on this instance."}
 	}
 
 	confirmUsername := r.PostFormValue("confirm-username")
 	if u.Username != confirmUsername {
-		return impart.HTTPError{http.StatusBadRequest, "Confirmation username must match your username exactly."}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: "Confirmation username must match your username exactly."}
 	}
 
 	// Check for account deletion safeguards in place
 	if u.IsAdmin() {
-		return impart.HTTPError{http.StatusForbidden, "Cannot delete admin."}
+		return impart.HTTPError{Status: http.StatusForbidden, Message: "Cannot delete admin."}
 	}
 
 	err := app.db.DeleteAccount(u.ID)
 	if err != nil {
 		log.Error("user delete account: %v", err)
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not delete account: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not delete account: %v", err)}
 	}
 
 	// FIXME: This doesn't ever appear to the user, as (I believe) the value is erased when the session cookie is reset
 	_ = addSessionFlash(app, w, r, "Thanks for writing with us! You account was deleted successfully.", nil)
-	return impart.HTTPError{http.StatusFound, "/me/logout"}
+	return impart.HTTPError{Status: http.StatusFound, Message: "/me/logout"}
 }
 
 func removeOauth(app *App, u *User, w http.ResponseWriter, r *http.Request) error {

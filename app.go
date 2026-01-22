@@ -253,7 +253,7 @@ func handleViewHome(app *App, w http.ResponseWriter, r *http.Request) error {
 		}
 
 		if land := app.cfg.App.LandingPath(); land != "/" {
-			return impart.HTTPError{http.StatusFound, land}
+			return impart.HTTPError{Status: http.StatusFound, Message: land}
 		}
 	}
 
@@ -280,14 +280,14 @@ func handleViewLanding(app *App, w http.ResponseWriter, r *http.Request) error {
 	banner, err := getLandingBanner(app)
 	if err != nil {
 		log.Error("unable to get landing banner: %v", err)
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not get banner: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not get banner: %v", err)}
 	}
 	p.Banner = template.HTML(applyMarkdown([]byte(banner.Content), "", app.cfg))
 
 	content, err := getLandingBody(app)
 	if err != nil {
 		log.Error("unable to get landing content: %v", err)
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not get content: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not get content: %v", err)}
 	}
 	p.Content = template.HTML(applyMarkdown([]byte(content.Content), "", app.cfg))
 
@@ -386,7 +386,7 @@ func pageForReq(app *App, r *http.Request) page.StaticPage {
 		u = getUserSession(app, r)
 		if u != nil {
 			p.Username = u.Username
-			p.IsAdmin = u != nil && u.IsAdmin()
+			p.IsAdmin = u.IsAdmin()
 			p.CanInvite = canUserInvite(app.cfg, p.IsAdmin)
 		}
 	}
