@@ -30,7 +30,7 @@ func NewDatastore(db *sql.DB, dn string) *datastore {
 // TODO: use these consts from writefreely pkg
 const (
 	driverMySQL  = "mysql"
-	driverSQLite = "sqlite3"
+	driverSQLite = "sqlite"
 )
 
 type Migration interface {
