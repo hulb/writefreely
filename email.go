@@ -121,7 +121,7 @@ func handleCreateEmailSubscription(app *App, w http.ResponseWriter, r *http.Requ
 	isAuthorBanned, err := app.db.IsUserSilenced(c.OwnerID)
 	if isAuthorBanned {
 		log.Info("Author is silenced, so subscription is blocked.")
-		return impart.HTTPError{http.StatusFound, from}
+		return impart.HTTPError{Status: http.StatusFound, Message: from}
 	}
 
 	if ss.Web {
@@ -133,12 +133,12 @@ func handleCreateEmailSubscription(app *App, w http.ResponseWriter, r *http.Requ
 
 	if r.FormValue(spam.HoneypotFieldName()) != "" || r.FormValue("fake_password") != "" {
 		log.Info("Honeypot field was filled out! Not subscribing.")
-		return impart.HTTPError{http.StatusFound, from}
+		return impart.HTTPError{Status: http.StatusFound, Message: from}
 	}
 
 	if ss.Email == "" && ss.UserID < 1 {
 		log.Info("No subscriber data. Not subscribing.")
-		return impart.HTTPError{http.StatusFound, from}
+		return impart.HTTPError{Status: http.StatusFound, Message: from}
 	}
 
 	confirmed := app.db.IsSubscriberConfirmed(ss.Email)
@@ -176,7 +176,7 @@ func handleCreateEmailSubscription(app *App, w http.ResponseWriter, r *http.Requ
 			return err
 		}
 
-		return impart.HTTPError{http.StatusFound, from}
+		return impart.HTTPError{Status: http.StatusFound, Message: from}
 	}
 	return impart.WriteSuccess(w, "", http.StatusAccepted)
 }
@@ -283,7 +283,7 @@ func handleDeleteEmailSubscription(app *App, w http.ResponseWriter, r *http.Requ
 	if isWeb {
 		from += slug
 		addSessionFlash(app, w, r, "<strong>Unsubscribed</strong>. You will no longer receive these blog posts via email.", nil)
-		return impart.HTTPError{http.StatusFound, from}
+		return impart.HTTPError{Status: http.StatusFound, Message: from}
 	}
 	return impart.WriteSuccess(w, "", http.StatusAccepted)
 }
@@ -310,11 +310,11 @@ func handleConfirmEmailSubscription(app *App, w http.ResponseWriter, r *http.Req
 	err = app.db.UpdateSubscriberConfirmed(subID, token)
 	if err != nil {
 		addSessionFlash(app, w, r, err.Error(), nil)
-		return impart.HTTPError{http.StatusFound, from}
+		return impart.HTTPError{Status: http.StatusFound, Message: from}
 	}
 
 	addSessionFlash(app, w, r, "<strong>Confirmed</strong>! Thanks. Now you'll receive future blog posts via email.", nil)
-	return impart.HTTPError{http.StatusFound, from}
+	return impart.HTTPError{Status: http.StatusFound, Message: from}
 }
 
 func emailPost(app *App, p *PublicPost, collID int64) error {

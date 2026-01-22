@@ -61,7 +61,7 @@ func (i Invite) ExpiresFriendly() string {
 func handleViewUserInvites(app *App, u *User, w http.ResponseWriter, r *http.Request) error {
 	// Don't show page if instance doesn't allow it
 	if !(app.cfg.App.UserInvites != "" && (u.IsAdmin() || app.cfg.App.UserInvites != "admin")) {
-		return impart.HTTPError{http.StatusNotFound, ""}
+		return impart.HTTPError{Status: http.StatusNotFound, Message: ""}
 	}
 
 	f, _ := getSessionFlashes(app, w, r, nil)
@@ -109,7 +109,7 @@ func handleCreateUserInvite(app *App, u *User, w http.ResponseWriter, r *http.Re
 	if muVal != "0" {
 		maxUses, err = strconv.Atoi(muVal)
 		if err != nil {
-			return impart.HTTPError{http.StatusBadRequest, "Invalid value for 'max_uses'"}
+			return impart.HTTPError{Status: http.StatusBadRequest, Message: "Invalid value for 'max_uses'"}
 		}
 	}
 
@@ -118,7 +118,7 @@ func handleCreateUserInvite(app *App, u *User, w http.ResponseWriter, r *http.Re
 	if expVal != "0" {
 		expires, err = strconv.Atoi(expVal)
 		if err != nil {
-			return impart.HTTPError{http.StatusBadRequest, "Invalid value for 'expires'"}
+			return impart.HTTPError{Status: http.StatusBadRequest, Message: "Invalid value for 'expires'"}
 		}
 		ed := time.Now().Add(time.Duration(expires) * time.Minute)
 		expDate = &ed
@@ -130,7 +130,7 @@ func handleCreateUserInvite(app *App, u *User, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	return impart.HTTPError{http.StatusFound, "/me/invites"}
+	return impart.HTTPError{Status: http.StatusFound, Message: "/me/invites"}
 }
 
 func handleViewInvite(app *App, w http.ResponseWriter, r *http.Request) error {
@@ -154,7 +154,7 @@ func handleViewInvite(app *App, w http.ResponseWriter, r *http.Request) error {
 		if ownInvite, _ := app.db.IsUsersInvite(inviteCode, u.ID); !ownInvite {
 			addSessionFlash(app, w, r, "You're already registered and logged in.", nil)
 			// show homepage
-			return impart.HTTPError{http.StatusFound, "/me/settings"}
+			return impart.HTTPError{Status: http.StatusFound, Message: "/me/settings"}
 		}
 
 		// show invite instructions

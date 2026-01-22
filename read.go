@@ -83,7 +83,7 @@ func (app *App) FetchPublicPosts() (interface{}, error) {
 	` + limit)
 	if err != nil {
 		log.Error("Failed selecting from posts: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve collection posts." + err.Error()}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve collection posts." + err.Error()}
 	}
 	defer rows.Close()
 
@@ -144,7 +144,7 @@ func viewLocalTimelineAPI(app *App, w http.ResponseWriter, r *http.Request) erro
 
 func viewLocalTimeline(app *App, w http.ResponseWriter, r *http.Request) error {
 	if !app.cfg.App.LocalTimeline {
-		return impart.HTTPError{http.StatusNotFound, "Page doesn't exist."}
+		return impart.HTTPError{Status: http.StatusNotFound, Message: "Page doesn't exist."}
 	}
 
 	vars := mux.Vars(r)
@@ -191,7 +191,7 @@ func showLocalTimeline(app *App, w http.ResponseWriter, r *http.Request, page in
 	if page > 1 {
 		start = app.timeline.postsPerPage * (page - 1)
 		if start > pl {
-			return impart.HTTPError{http.StatusFound, fmt.Sprintf("/read/p/%d", ttlPages)}
+			return impart.HTTPError{Status: http.StatusFound, Message: fmt.Sprintf("/read/p/%d", ttlPages)}
 		}
 	}
 	end := app.timeline.postsPerPage * page
@@ -275,7 +275,7 @@ func handlePostIDRedirect(app *App, w http.ResponseWriter, r *http.Request) erro
 	if !p.CollectionID.Valid {
 		// No collection; send to normal URL
 		// NOTE: not handling single user blogs here since this handler is only used for the Reader
-		return impart.HTTPError{http.StatusFound, app.cfg.App.Host + "/" + postID + ".md"}
+		return impart.HTTPError{Status: http.StatusFound, Message: app.cfg.App.Host + "/" + postID + ".md"}
 	}
 
 	c, err := app.db.GetCollectionBy("id = ?", fmt.Sprintf("%d", p.CollectionID.Int64))
@@ -285,12 +285,12 @@ func handlePostIDRedirect(app *App, w http.ResponseWriter, r *http.Request) erro
 	c.hostName = app.cfg.App.Host
 
 	// Retrieve collection information and send user to canonical URL
-	return impart.HTTPError{http.StatusFound, c.CanonicalURL() + p.Slug.String}
+	return impart.HTTPError{Status: http.StatusFound, Message: c.CanonicalURL() + p.Slug.String}
 }
 
 func viewLocalTimelineFeed(app *App, w http.ResponseWriter, req *http.Request) error {
 	if !app.cfg.App.LocalTimeline {
-		return impart.HTTPError{http.StatusNotFound, "Page doesn't exist."}
+		return impart.HTTPError{Status: http.StatusNotFound, Message: "Page doesn't exist."}
 	}
 
 	updateTimelineCache(app.timeline, false)
@@ -322,7 +322,7 @@ func viewLocalTimelineFeed(app *App, w http.ResponseWriter, req *http.Request) e
 			Link:        &Link{Href: permalink},
 			Description: "<![CDATA[" + stripmd.Strip(p.Content) + "]]>",
 			Content:     applyMarkdown([]byte(p.Content), "", app.cfg),
-			Author:      &Author{author, ""},
+			Author:      &Author{Name: author, Email: ""},
 			Created:     p.Created,
 			Updated:     p.Updated,
 		}

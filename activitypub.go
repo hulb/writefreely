@@ -953,7 +953,7 @@ func getRemoteUser(app *App, actorID string) (*RemoteUser, error) {
 	err := app.db.QueryRow("SELECT id, inbox, shared_inbox, url, handle FROM remoteusers WHERE actor_id = ?", actorID).Scan(&u.ID, &u.Inbox, &u.SharedInbox, &urlVal, &handle)
 	switch {
 	case err == sql.ErrNoRows:
-		return nil, impart.HTTPError{http.StatusNotFound, "No remote user with that ID."}
+		return nil, impart.HTTPError{Status: http.StatusNotFound, Message: "No remote user with that ID."}
 	case err != nil:
 		log.Error("Couldn't get remote user %s: %v", actorID, err)
 		return nil, err
@@ -1011,26 +1011,26 @@ func getActor(app *App, actorIRI string) (*activitystreams.Person, *RemoteUser, 
 				actorResp, err := resolveIRI(app.cfg.App.Host, actorIRI)
 				if err != nil {
 					log.Error("Unable to get base actor! %v", err)
-					return nil, nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't fetch actor."}
+					return nil, nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't fetch actor."}
 				}
 				if err := unmarshalActor(actorResp, actor); err != nil {
 					log.Error("Unable to unmarshal base actor! %v", err)
-					return nil, nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't parse actor."}
+					return nil, nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't parse actor."}
 				}
 				baseActor := &activitystreams.Person{}
 				if err := unmarshalActor(actorResp, baseActor); err != nil {
 					log.Error("Unable to unmarshal actual actor! %v", err)
-					return nil, nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't parse actual actor."}
+					return nil, nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't parse actual actor."}
 				}
 				// Fetch the actual actor using the owner field from the publicKey object
 				actualActorResp, err := resolveIRI(app.cfg.App.Host, baseActor.PublicKey.Owner)
 				if err != nil {
 					log.Error("Unable to get actual actor! %v", err)
-					return nil, nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't fetch actual actor."}
+					return nil, nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't fetch actual actor."}
 				}
 				if err := unmarshalActor(actualActorResp, actor); err != nil {
 					log.Error("Unable to unmarshal actual actor! %v", err)
-					return nil, nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't parse actual actor."}
+					return nil, nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't parse actual actor."}
 				}
 			} else {
 				return nil, nil, err

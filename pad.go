@@ -89,7 +89,7 @@ func handleViewPad(app *App, w http.ResponseWriter, r *http.Request) error {
 		appData.Post = getRawCollectionPost(app, slug, collAlias)
 		if appData.Post.OwnerID != appData.User.ID {
 			// TODO: add ErrForbiddenEditPost message to flashes
-			return impart.HTTPError{http.StatusFound, r.URL.Path[:strings.LastIndex(r.URL.Path, "/edit")]}
+			return impart.HTTPError{Status: http.StatusFound, Message: r.URL.Path[:strings.LastIndex(r.URL.Path, "/edit")]}
 		}
 		appData.EditCollection, err = app.db.GetCollectionForPad(collAlias)
 		if err != nil {
@@ -156,7 +156,7 @@ func handleViewMeta(app *App, w http.ResponseWriter, r *http.Request) error {
 		appData.Post = getRawCollectionPost(app, slug, collAlias)
 		if appData.Post.OwnerID != appData.User.ID {
 			// TODO: add ErrForbiddenEditPost message to flashes
-			return impart.HTTPError{http.StatusFound, r.URL.Path[:strings.LastIndex(r.URL.Path, "/meta")]}
+			return impart.HTTPError{Status: http.StatusFound, Message: r.URL.Path[:strings.LastIndex(r.URL.Path, "/meta")]}
 		}
 		if app.cfg.App.SingleUser {
 			// TODO: optimize this query just like we do in GetCollectionForPad (?)

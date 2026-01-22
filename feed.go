@@ -91,7 +91,7 @@ func ViewFeed(app *App, w http.ResponseWriter, req *http.Request) error {
 		Title:       collectionTitle,
 		Link:        &feeds.Link{Href: siteURL},
 		Description: coll.Description,
-		Author:      &feeds.Author{author, ""},
+		Author:      &feeds.Author{Name: author, Email: ""},
 		Created:     time.Now(),
 	}
 
@@ -109,7 +109,7 @@ func ViewFeed(app *App, w http.ResponseWriter, req *http.Request) error {
 			Link:        &feeds.Link{Href: permalink},
 			Description: "<![CDATA[" + stripmd.Strip(p.Content) + "]]>",
 			Content:     string(p.HTMLContent),
-			Author:      &feeds.Author{author, ""},
+			Author:      &feeds.Author{Name: author, Email: ""},
 			Created:     p.Created,
 			Updated:     p.Updated,
 		})

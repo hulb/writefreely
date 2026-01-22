@@ -208,7 +208,7 @@ func handleViewAdminUsers(app *App, u *User, w http.ResponseWriter, r *http.Requ
 
 	p.Flashes, _ = getSessionFlashes(app, w, r, nil)
 	p.TotalUsers = app.db.GetAllUsersCount()
-	ttlPages := (p.TotalUsers - 1) / adminUsersPerPage + 1
+	ttlPages := (p.TotalUsers-1)/adminUsersPerPage + 1
 	p.TotalPages = []int{}
 	for i := 1; i <= int(ttlPages); i++ {
 		p.TotalPages = append(p.TotalPages, i)
@@ -224,7 +224,7 @@ func handleViewAdminUsers(app *App, u *User, w http.ResponseWriter, r *http.Requ
 
 	p.Users, err = app.db.GetAllUsers(uint(p.CurPage))
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not get users: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not get users: %v", err)}
 	}
 
 	showUserPage(w, "users", p)
@@ -235,7 +235,7 @@ func handleViewAdminUser(app *App, u *User, w http.ResponseWriter, r *http.Reque
 	vars := mux.Vars(r)
 	username := vars["username"]
 	if username == "" {
-		return impart.HTTPError{http.StatusFound, "/admin/users"}
+		return impart.HTTPError{Status: http.StatusFound, Message: "/admin/users"}
 	}
 
 	p := struct {
@@ -264,7 +264,7 @@ func handleViewAdminUser(app *App, u *User, w http.ResponseWriter, r *http.Reque
 			return err
 		}
 		log.Error("Could not get user: %v", err)
-		return impart.HTTPError{http.StatusInternalServerError, err.Error()}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: err.Error()}
 	}
 
 	flashes, _ := getSessionFlashes(app, w, r, nil)
@@ -278,7 +278,7 @@ func handleViewAdminUser(app *App, u *User, w http.ResponseWriter, r *http.Reque
 	p.TotalPosts = app.db.GetUserPostsCount(p.User.ID)
 	lp, err := app.db.GetUserLastPostTime(p.User.ID)
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not get user's last post time: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not get user's last post time: %v", err)}
 	}
 	if lp != nil {
 		p.LastPost = lp.Format("January 2, 2006, 3:04 PM")
@@ -286,7 +286,7 @@ func handleViewAdminUser(app *App, u *User, w http.ResponseWriter, r *http.Reque
 
 	colls, err := app.db.GetCollections(p.User, app.cfg.App.Host)
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not get user's collections: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not get user's collections: %v", err)}
 	}
 	for _, c := range *colls {
 		ic := inspectedCollection{
@@ -320,7 +320,7 @@ func handleViewAdminUser(app *App, u *User, w http.ResponseWriter, r *http.Reque
 
 func handleAdminDeleteUser(app *App, u *User, w http.ResponseWriter, r *http.Request) error {
 	if !u.IsAdmin() {
-		return impart.HTTPError{http.StatusForbidden, "Administrator privileges required for this action"}
+		return impart.HTTPError{Status: http.StatusForbidden, Message: "Administrator privileges required for this action"}
 	}
 
 	vars := mux.Vars(r)
@@ -328,38 +328,38 @@ func handleAdminDeleteUser(app *App, u *User, w http.ResponseWriter, r *http.Req
 	confirmUsername := r.PostFormValue("confirm-username")
 
 	if confirmUsername != username {
-		return impart.HTTPError{http.StatusBadRequest, "Username was not confirmed"}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: "Username was not confirmed"}
 	}
 
 	user, err := app.db.GetUserForAuth(username)
 	if err == ErrUserNotFound {
-		return impart.HTTPError{http.StatusNotFound, fmt.Sprintf("User '%s' was not found", username)}
+		return impart.HTTPError{Status: http.StatusNotFound, Message: fmt.Sprintf("User '%s' was not found", username)}
 	} else if err != nil {
 		log.Error("get user for deletion: %v", err)
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not get user with username '%s': %v", username, err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not get user with username '%s': %v", username, err)}
 	}
 
 	err = app.db.DeleteAccount(user.ID)
 	if err != nil {
 		log.Error("delete user %s: %v", user.Username, err)
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not delete user account for '%s': %v", username, err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not delete user account for '%s': %v", username, err)}
 	}
 
 	_ = addSessionFlash(app, w, r, fmt.Sprintf("User \"%s\" was deleted successfully.", username), nil)
-	return impart.HTTPError{http.StatusFound, "/admin/users"}
+	return impart.HTTPError{Status: http.StatusFound, Message: "/admin/users"}
 }
 
 func handleAdminToggleUserStatus(app *App, u *User, w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	username := vars["username"]
 	if username == "" {
-		return impart.HTTPError{http.StatusFound, "/admin/users"}
+		return impart.HTTPError{Status: http.StatusFound, Message: "/admin/users"}
 	}
 
 	user, err := app.db.GetUserForAuth(username)
 	if err != nil {
 		log.Error("failed to get user: %v", err)
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not get user from username: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not get user from username: %v", err)}
 	}
 	if user.IsSilenced() {
 		err = app.db.SetUserStatus(user.ID, UserActive)
@@ -371,41 +371,41 @@ func handleAdminToggleUserStatus(app *App, u *User, w http.ResponseWriter, r *ht
 	}
 	if err != nil {
 		log.Error("toggle user silenced: %v", err)
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not toggle user status: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not toggle user status: %v", err)}
 	}
-	return impart.HTTPError{http.StatusFound, fmt.Sprintf("/admin/user/%s#status", username)}
+	return impart.HTTPError{Status: http.StatusFound, Message: fmt.Sprintf("/admin/user/%s#status", username)}
 }
 
 func handleAdminResetUserPass(app *App, u *User, w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	username := vars["username"]
 	if username == "" {
-		return impart.HTTPError{http.StatusFound, "/admin/users"}
+		return impart.HTTPError{Status: http.StatusFound, Message: "/admin/users"}
 	}
 
 	// Generate new random password since none supplied
 	pass := passgen.NewWordish()
 	hashedPass, err := auth.HashPass([]byte(pass))
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not create password hash: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not create password hash: %v", err)}
 	}
 
 	userIDVal := r.FormValue("user")
 	log.Info("ADMIN: Changing user %s password", userIDVal)
 	id, err := strconv.Atoi(userIDVal)
 	if err != nil {
-		return impart.HTTPError{http.StatusBadRequest, fmt.Sprintf("Invalid user ID: %v", err)}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: fmt.Sprintf("Invalid user ID: %v", err)}
 	}
 
 	err = app.db.ChangePassphrase(int64(id), true, "", hashedPass)
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not update passphrase: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not update passphrase: %v", err)}
 	}
 	log.Info("ADMIN: Successfully changed.")
 
 	addSessionFlash(app, w, r, fmt.Sprintf("SUCCESS: %s", pass), nil)
 
-	return impart.HTTPError{http.StatusFound, fmt.Sprintf("/admin/user/%s", username)}
+	return impart.HTTPError{Status: http.StatusFound, Message: fmt.Sprintf("/admin/user/%s", username)}
 }
 
 func handleViewAdminPages(app *App, u *User, w http.ResponseWriter, r *http.Request) error {
@@ -426,7 +426,7 @@ func handleViewAdminPages(app *App, u *User, w http.ResponseWriter, r *http.Requ
 	var err error
 	p.Pages, err = app.db.GetInstancePages()
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not get pages: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not get pages: %v", err)}
 	}
 
 	// Add in default pages
@@ -484,7 +484,7 @@ func handleViewAdminPage(app *App, u *User, w http.ResponseWriter, r *http.Reque
 	vars := mux.Vars(r)
 	slug := vars["slug"]
 	if slug == "" {
-		return impart.HTTPError{http.StatusFound, "/admin/pages"}
+		return impart.HTTPError{Status: http.StatusFound, Message: "/admin/pages"}
 	}
 
 	p := struct {
@@ -512,7 +512,7 @@ func handleViewAdminPage(app *App, u *User, w http.ResponseWriter, r *http.Reque
 	} else if slug == "landing" {
 		p.Banner, err = getLandingBanner(app)
 		if err != nil {
-			return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not get banner: %v", err)}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not get banner: %v", err)}
 		}
 		p.Content, err = getLandingBody(app)
 		p.Content.ID = "landing"
@@ -522,7 +522,7 @@ func handleViewAdminPage(app *App, u *User, w http.ResponseWriter, r *http.Reque
 		p.Content, err = app.db.GetDynamicContent(slug)
 	}
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not get page: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not get page: %v", err)}
 	}
 	title := "New page"
 	if p.Content != nil {
@@ -542,7 +542,7 @@ func handleAdminUpdateSite(app *App, u *User, w http.ResponseWriter, r *http.Req
 
 	// Validate
 	if id != "about" && id != "contact" && id != "privacy" && id != "landing" && id != "reader" {
-		return impart.HTTPError{http.StatusNotFound, "No such page."}
+		return impart.HTTPError{Status: http.StatusNotFound, Message: "No such page."}
 	}
 
 	var err error
@@ -552,7 +552,7 @@ func handleAdminUpdateSite(app *App, u *User, w http.ResponseWriter, r *http.Req
 		err = app.db.UpdateDynamicContent("landing-banner", "", r.FormValue("banner"), "section")
 		if err != nil {
 			m = "?m=" + err.Error()
-			return impart.HTTPError{http.StatusFound, "/admin/page/" + id + m}
+			return impart.HTTPError{Status: http.StatusFound, Message: "/admin/page/" + id + m}
 		}
 		err = app.db.UpdateDynamicContent("landing-body", "", r.FormValue("content"), "section")
 	} else if id == "reader" {
@@ -565,7 +565,7 @@ func handleAdminUpdateSite(app *App, u *User, w http.ResponseWriter, r *http.Req
 	if err != nil {
 		m = "?m=" + err.Error()
 	}
-	return impart.HTTPError{http.StatusFound, "/admin/page/" + id + m}
+	return impart.HTTPError{Status: http.StatusFound, Message: "/admin/page/" + id + m}
 }
 
 func handleAdminUpdateConfig(apper Apper, u *User, w http.ResponseWriter, r *http.Request) error {
@@ -602,7 +602,7 @@ func handleAdminUpdateConfig(apper Apper, u *User, w http.ResponseWriter, r *htt
 	if err != nil {
 		m = "?cm=" + err.Error()
 	}
-	return impart.HTTPError{http.StatusFound, "/admin/settings" + m + "#config"}
+	return impart.HTTPError{Status: http.StatusFound, Message: "/admin/settings" + m + "#config"}
 }
 
 func updateAppStats() {
@@ -646,12 +646,12 @@ func updateAppStats() {
 func adminResetPassword(app *App, u *User, newPass string) error {
 	hashedPass, err := auth.HashPass([]byte(newPass))
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not create password hash: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not create password hash: %v", err)}
 	}
 
 	err = app.db.ChangePassphrase(u.ID, true, "", hashedPass)
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("Could not update passphrase: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("Could not update passphrase: %v", err)}
 	}
 	return nil
 }

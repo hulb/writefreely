@@ -189,7 +189,7 @@ func getReaderSection(app *App) (*instanceContent, error) {
 	return c, nil
 }
 
-func defaultReaderTitle(cfg *config.Config) sql.NullString {
+func defaultReaderTitle(_ *config.Config) sql.NullString {
 	return sql.NullString{String: "Reader", Valid: true}
 }
 

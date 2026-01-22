@@ -20,7 +20,7 @@ import (
 	"github.com/writeas/web-core/log"
 )
 
-func exportPostsCSV(hostName string, u *User, posts *[]PublicPost) []byte {
+func exportPostsCSV(hostName string, _ *User, posts *[]PublicPost) []byte {
 	var b bytes.Buffer
 
 	r := [][]string{
@@ -51,7 +51,7 @@ type exportedTxt struct {
 	Mod time.Time
 }
 
-func exportPostsZip(u *User, posts *[]PublicPost) []byte {
+func exportPostsZip(_ *User, posts *[]PublicPost) []byte {
 	// Create a buffer to write our archive to.
 	b := new(bytes.Buffer)
 

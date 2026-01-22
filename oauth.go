@@ -137,7 +137,7 @@ func (h oauthHandler) viewOauthInit(app *App, w http.ResponseWriter, r *http.Req
 	if attach := r.URL.Query().Get("attach"); attach == "t" {
 		user, _ := getUserAndSession(app, r)
 		if user == nil {
-			return impart.HTTPError{http.StatusInternalServerError, "cannot attach auth to user: user not found in session"}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: "cannot attach auth to user: user not found in session"}
 		}
 		attachUser = user.ID
 	}
@@ -145,22 +145,22 @@ func (h oauthHandler) viewOauthInit(app *App, w http.ResponseWriter, r *http.Req
 	state, err := h.DB.GenerateOAuthState(ctx, h.oauthClient.GetProvider(), h.oauthClient.GetClientID(), attachUser, r.FormValue("invite_code"))
 	if err != nil {
 		log.Error("viewOauthInit error: %s", err)
-		return impart.HTTPError{http.StatusInternalServerError, "could not prepare oauth redirect url"}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: "could not prepare oauth redirect url"}
 	}
 
 	if h.callbackProxy != nil {
 		if err := h.callbackProxy.register(ctx, state); err != nil {
 			log.Error("viewOauthInit error: %s", err)
-			return impart.HTTPError{http.StatusInternalServerError, "could not register state server"}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: "could not register state server"}
 		}
 	}
 
 	location, err := h.oauthClient.buildLoginURL(state)
 	if err != nil {
 		log.Error("viewOauthInit error: %s", err)
-		return impart.HTTPError{http.StatusInternalServerError, "could not prepare oauth redirect url"}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: "could not prepare oauth redirect url"}
 	}
-	return impart.HTTPError{http.StatusTemporaryRedirect, location}
+	return impart.HTTPError{Status: http.StatusTemporaryRedirect, Message: location}
 }
 
 func configureSlackOauth(parentHandler *Handler, r *mux.Router, app *App) {
@@ -329,7 +329,7 @@ func (h oauthHandler) viewOauthCallback(app *App, w http.ResponseWriter, r *http
 	provider, clientID, attachUserID, inviteCode, err := h.DB.ValidateOAuthState(ctx, state)
 	if err != nil {
 		log.Error("Unable to ValidateOAuthState: %s", err)
-		return impart.HTTPError{http.StatusInternalServerError, err.Error()}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: err.Error()}
 	}
 
 	tokenResponse, err := h.oauthClient.exchangeOauthCode(ctx, code)
@@ -339,9 +339,9 @@ func (h oauthHandler) viewOauthCallback(app *App, w http.ResponseWriter, r *http
 		// TODO: show NO message for cases like user pressing "Cancel" on authorize step
 		addSessionFlash(app, w, r, err.Error(), nil)
 		if attachUserID > 0 {
-			return impart.HTTPError{http.StatusFound, "/me/settings"}
+			return impart.HTTPError{Status: http.StatusFound, Message: "/me/settings"}
 		}
-		return impart.HTTPError{http.StatusInternalServerError, err.Error()}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: err.Error()}
 	}
 
 	// Now that we have the access token, let's use it real quick to make sure
@@ -349,20 +349,20 @@ func (h oauthHandler) viewOauthCallback(app *App, w http.ResponseWriter, r *http
 	tokenInfo, err := h.oauthClient.inspectOauthAccessToken(ctx, tokenResponse.AccessToken)
 	if err != nil {
 		log.Error("Unable to inspectOauthAccessToken: %s", err)
-		return impart.HTTPError{http.StatusInternalServerError, err.Error()}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: err.Error()}
 	}
 
 	localUserID, err := h.DB.GetIDForRemoteUser(ctx, tokenInfo.UserID, provider, clientID)
 	if err != nil {
 		log.Error("Unable to GetIDForRemoteUser: %s", err)
-		return impart.HTTPError{http.StatusInternalServerError, err.Error()}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: err.Error()}
 	}
 
 	if localUserID != -1 && attachUserID > 0 {
 		if err = addSessionFlash(app, w, r, "This OAuth account is already attached to another user.", nil); err != nil {
 			return impart.HTTPError{Status: http.StatusInternalServerError, Message: err.Error()}
 		}
-		return impart.HTTPError{http.StatusFound, "/me/settings"}
+		return impart.HTTPError{Status: http.StatusFound, Message: "/me/settings"}
 	}
 
 	if localUserID != -1 {
@@ -370,11 +370,11 @@ func (h oauthHandler) viewOauthCallback(app *App, w http.ResponseWriter, r *http
 		user, err := h.DB.GetUserByID(localUserID)
 		if err != nil {
 			log.Error("Unable to GetUserByID %d: %s", localUserID, err)
-			return impart.HTTPError{http.StatusInternalServerError, err.Error()}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: err.Error()}
 		}
 		if err = loginOrFail(h.Store, w, r, user); err != nil {
 			log.Error("Unable to loginOrFail %d: %s", localUserID, err)
-			return impart.HTTPError{http.StatusInternalServerError, err.Error()}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: err.Error()}
 		}
 		return nil
 	}
@@ -383,9 +383,9 @@ func (h oauthHandler) viewOauthCallback(app *App, w http.ResponseWriter, r *http
 		log.Info("OAuth userid: %s", tokenInfo.UserID)
 		err = h.DB.RecordRemoteUserID(r.Context(), attachUserID, tokenInfo.UserID, provider, clientID, tokenResponse.AccessToken)
 		if err != nil {
-			return impart.HTTPError{http.StatusInternalServerError, err.Error()}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: err.Error()}
 		}
-		return impart.HTTPError{http.StatusFound, "/me/settings"}
+		return impart.HTTPError{Status: http.StatusFound, Message: "/me/settings"}
 	}
 
 	// New user registration below.
@@ -394,14 +394,14 @@ func (h oauthHandler) viewOauthCallback(app *App, w http.ResponseWriter, r *http
 		// Verify invite code is valid
 		i, err := app.db.GetUserInvite(inviteCode)
 		if err != nil {
-			return impart.HTTPError{http.StatusInternalServerError, err.Error()}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: err.Error()}
 		}
 		if !i.Active(app.db) {
-			return impart.HTTPError{http.StatusNotFound, "Invite link has expired."}
+			return impart.HTTPError{Status: http.StatusNotFound, Message: "Invite link has expired."}
 		}
 	} else if !app.cfg.App.OpenRegistration {
 		addSessionFlash(app, w, r, ErrUserNotFound.Error(), nil)
-		return impart.HTTPError{http.StatusFound, "/login"}
+		return impart.HTTPError{Status: http.StatusFound, Message: "/login"}
 	}
 
 	displayName := tokenInfo.DisplayName

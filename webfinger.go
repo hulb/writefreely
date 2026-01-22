@@ -27,7 +27,7 @@ type wfResolver struct {
 	cfg *config.Config
 }
 
-var wfUserNotFoundErr = impart.HTTPError{http.StatusNotFound, "User not found."}
+var wfUserNotFoundErr = impart.HTTPError{Status: http.StatusNotFound, Message: "User not found."}
 
 func (wfr wfResolver) FindUser(username string, host, requestHost string, r []webfinger.Rel) (*webfinger.Resource, error) {
 	var c *Collection

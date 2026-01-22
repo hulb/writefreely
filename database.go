@@ -19,27 +19,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/writeas/monday"
-
 	"github.com/go-sql-driver/mysql"
-	"github.com/writeas/web-core/silobridge"
-	wf_db "github.com/writefreely/writefreely/db"
-	"github.com/writefreely/writefreely/parse"
-
 	"github.com/guregu/null"
 	"github.com/guregu/null/zero"
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/writeas/activityserve"
 	"github.com/writeas/impart"
+	"github.com/writeas/monday"
 	"github.com/writeas/web-core/activitypub"
 	"github.com/writeas/web-core/auth"
 	"github.com/writeas/web-core/data"
 	"github.com/writeas/web-core/id"
 	"github.com/writeas/web-core/log"
 	"github.com/writeas/web-core/query"
+	"github.com/writeas/web-core/silobridge"
 	"github.com/writefreely/writefreely/author"
 	"github.com/writefreely/writefreely/config"
+	wf_db "github.com/writefreely/writefreely/db"
 	"github.com/writefreely/writefreely/key"
+	"github.com/writefreely/writefreely/parse"
 )
 
 const (
@@ -212,7 +210,7 @@ func (db *datastore) version() (string, error) {
 // CreateUser creates a new user in the database from the given User, UPDATING it in the process with the user's ID.
 func (db *datastore) CreateUser(cfg *config.Config, u *User, collectionTitle string, collectionDesc string) error {
 	if db.PostIDExists(u.Username) {
-		return impart.HTTPError{http.StatusConflict, "Invalid collection name."}
+		return impart.HTTPError{Status: http.StatusConflict, Message: "Invalid collection name."}
 	}
 
 	// New users get a `users` and `collections` row.
@@ -227,7 +225,7 @@ func (db *datastore) CreateUser(cfg *config.Config, u *User, collectionTitle str
 	if err != nil {
 		t.Rollback()
 		if db.isDuplicateKeyErr(err) {
-			return impart.HTTPError{http.StatusConflict, "Username is already taken."}
+			return impart.HTTPError{Status: http.StatusConflict, Message: "Username is already taken."}
 		}
 
 		log.Error("Rolling back users INSERT: %v\n", err)
@@ -248,7 +246,7 @@ func (db *datastore) CreateUser(cfg *config.Config, u *User, collectionTitle str
 	if err != nil {
 		t.Rollback()
 		if db.isDuplicateKeyErr(err) {
-			return impart.HTTPError{http.StatusConflict, "Username is already taken."}
+			return impart.HTTPError{Status: http.StatusConflict, Message: "Username is already taken."}
 		}
 		log.Error("Rolling back collections INSERT: %v\n", err)
 		return err
@@ -300,7 +298,7 @@ func (db *datastore) GetUserCollectionCount(userID int64) (uint64, error) {
 	err := db.QueryRow("SELECT COUNT(*) FROM collections WHERE owner_id = ?", userID).Scan(&collCount)
 	switch {
 	case err == sql.ErrNoRows:
-		return 0, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve user from database."}
+		return 0, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve user from database."}
 	case err != nil:
 		log.Error("Couldn't get collections count for user %d: %v", userID, err)
 		return 0, err
@@ -311,14 +309,14 @@ func (db *datastore) GetUserCollectionCount(userID int64) (uint64, error) {
 
 func (db *datastore) CreateCollection(cfg *config.Config, alias, title string, userID int64) (*Collection, error) {
 	if db.PostIDExists(alias) {
-		return nil, impart.HTTPError{http.StatusConflict, "Invalid collection name."}
+		return nil, impart.HTTPError{Status: http.StatusConflict, Message: "Invalid collection name."}
 	}
 
 	// All good, so create new collection
 	res, err := db.Exec("INSERT INTO collections (alias, title, description, privacy, owner_id, view_count) VALUES (?, ?, ?, ?, ?, ?)", alias, title, "", defaultVisibility(cfg), userID, 0)
 	if err != nil {
 		if db.isDuplicateKeyErr(err) {
-			return nil, impart.HTTPError{http.StatusConflict, "Collection already exists."}
+			return nil, impart.HTTPError{Status: http.StatusConflict, Message: "Collection already exists."}
 		}
 		log.Error("Couldn't add to collections: %v\n", err)
 		return nil, err
@@ -541,7 +539,7 @@ func (db *datastore) DeleteToken(accessToken []byte) error {
 	}
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
-		return impart.HTTPError{http.StatusNotFound, "Token is invalid or doesn't exist"}
+		return impart.HTTPError{Status: http.StatusNotFound, Message: "Token is invalid or doesn't exist"}
 	}
 	return nil
 }
@@ -689,7 +687,7 @@ func (db *datastore) CreatePost(userID, collID int64, post *SubmittedPost) (*Pos
 	ownerCollID := sql.NullInt64{
 		Valid: false,
 	}
-	slug := sql.NullString{"", false}
+	slug := sql.NullString{String: "", Valid: false}
 
 	// If an alias was supplied, we'll add this to the collection as well.
 	if userID > 0 {
@@ -714,7 +712,7 @@ func (db *datastore) CreatePost(userID, collID int64, post *SubmittedPost) (*Pos
 			if slugVal == "" {
 				slugVal = friendlyID
 			}
-			slug = sql.NullString{slugVal, true}
+			slug = sql.NullString{String: slugVal, Valid: true}
 		}
 	}
 
@@ -745,7 +743,7 @@ func (db *datastore) CreatePost(userID, collID int64, post *SubmittedPost) (*Pos
 		if db.isDuplicateKeyErr(err) {
 			// Duplicate entry error; try a new slug
 			// TODO: make this a little more robust
-			slug = sql.NullString{id.GenSafeUniqueSlug(slug.String), true}
+			slug = sql.NullString{String: id.GenSafeUniqueSlug(slug.String), Valid: true}
 			_, err = stmt.Exec(friendlyID, slug, post.Title, post.Content, appearance, post.Language, post.IsRTL, 0, ownerID, ownerCollID, created, 0)
 			if err != nil {
 				return nil, handleFailedPostInsert(fmt.Errorf("Retried slug generation, still failed: %v", err))
@@ -863,7 +861,7 @@ func (db *datastore) GetCollectionBy(condition string, value interface{}) (*Coll
 	err := row.Scan(&c.ID, &c.Alias, &c.Title, &c.Description, &styleSheet, &script, &signature, &format, &c.OwnerID, &c.Visibility, &c.Views)
 	switch {
 	case err == sql.ErrNoRows:
-		return nil, impart.HTTPError{http.StatusNotFound, "Collection doesn't exist."}
+		return nil, impart.HTTPError{Status: http.StatusNotFound, Message: "Collection doesn't exist."}
 	case db.isHighLoadError(err):
 		return nil, ErrUnavailable
 	case err != nil:
@@ -895,7 +893,7 @@ func (db *datastore) GetCollectionForPad(alias string) (*Collection, error) {
 	err := row.Scan(&c.ID, &c.Alias, &c.Title, &c.Description, &c.Visibility)
 	switch {
 	case err == sql.ErrNoRows:
-		return c, impart.HTTPError{http.StatusNotFound, "Collection doesn't exist."}
+		return c, impart.HTTPError{Status: http.StatusNotFound, Message: "Collection doesn't exist."}
 	case err != nil:
 		log.Error("Failed selecting from collections: %v", err)
 		return c, ErrInternalGeneral
@@ -1104,7 +1102,7 @@ func (db *datastore) UpdateCollection(app *App, c *SubmittedCollection, alias st
 		hashedPass, err := auth.HashPass([]byte(c.Pass))
 		if err != nil {
 			log.Error("Unable to create hash: %s", err)
-			return impart.HTTPError{http.StatusInternalServerError, "Could not create password hash."}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Could not create password hash."}
 		}
 		if db.driverName == driverSQLite {
 			_, err = db.Exec("INSERT OR REPLACE INTO collectionpasswords (collection_id, password) VALUES ((SELECT id FROM collections WHERE alias = ?), ?)", alias, hashedPass)
@@ -1239,7 +1237,7 @@ func (db *datastore) GetPostProperty(id string, collectionID int64, property str
 	}
 	selectQuery, ok := propSelects[property]
 	if !ok {
-		return nil, impart.HTTPError{http.StatusBadRequest, fmt.Sprintf("Invalid property: %s.", property)}
+		return nil, impart.HTTPError{Status: http.StatusBadRequest, Message: fmt.Sprintf("Invalid property: %s.", property)}
 	}
 
 	var res interface{}
@@ -1252,7 +1250,7 @@ func (db *datastore) GetPostProperty(id string, collectionID int64, property str
 	err := row.Scan(&res)
 	switch {
 	case err == sql.ErrNoRows:
-		return nil, impart.HTTPError{http.StatusNotFound, "Post not found."}
+		return nil, impart.HTTPError{Status: http.StatusNotFound, Message: "Post not found."}
 	case err != nil:
 		log.Error("Failed selecting post: %v", err)
 		return nil, err
@@ -1335,7 +1333,7 @@ func (db *datastore) GetPosts(cfg *config.Config, c *Collection, page int, inclu
 	rows, err := db.Query("SELECT "+postCols+" FROM posts WHERE collection_id = ? "+pinnedCondition+" "+timeCondition+" ORDER BY created "+order+limitStr, collID)
 	if err != nil {
 		log.Error("Failed selecting from posts: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve collection posts."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve collection posts."}
 	}
 	defer rows.Close()
 
@@ -1390,7 +1388,7 @@ func (db *datastore) GetAllPostsTaggedIDs(c *Collection, tag string, includeFutu
 	}
 	if err != nil {
 		log.Error("Failed selecting tagged posts: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve tagged collection posts."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve tagged collection posts."}
 	}
 	defer rows.Close()
 
@@ -1459,7 +1457,7 @@ func (db *datastore) GetPostsTagged(cfg *config.Config, c *Collection, tag strin
 	}
 	if err != nil {
 		log.Error("Failed selecting from posts: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve collection posts."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve collection posts."}
 	}
 	defer rows.Close()
 
@@ -1527,7 +1525,7 @@ WHERE collection_id = ? AND language = ? `+timeCondition+`
 ORDER BY created `+order+limitStr, collID, lang)
 	if err != nil {
 		log.Error("Failed selecting from posts: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve collection posts."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve collection posts."}
 	}
 	defer rows.Close()
 
@@ -1558,7 +1556,7 @@ func (db *datastore) GetAPFollowers(c *Collection) (*[]RemoteUser, error) {
 	rows, err := db.Query("SELECT actor_id, inbox, shared_inbox, f.created FROM remotefollows f INNER JOIN remoteusers u ON f.remote_user_id = u.id WHERE collection_id = ?", c.ID)
 	if err != nil {
 		log.Error("Failed selecting from followers: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve followers."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve followers."}
 	}
 	defer rows.Close()
 
@@ -1696,10 +1694,6 @@ func (db *datastore) ClaimPosts(cfg *config.Config, userID int64, collAlias stri
 	postCollAlias := collAlias
 	for i := range *posts {
 		p := (*posts)[i]
-		if &p == nil {
-			continue
-		}
-
 		r := ClaimPostResult{Code: 0, ErrorMessage: ""}
 
 		// Perform post validation
@@ -1905,7 +1899,7 @@ func (db *datastore) GetPinnedPosts(coll *CollectionObj, includeFuture bool) (*[
 	rows, err := db.Query("SELECT id, slug, title, "+db.clip("content", 80)+", pinned_position FROM posts WHERE collection_id = ? AND pinned_position IS NOT NULL "+timeCondition+" ORDER BY pinned_position ASC", coll.ID)
 	if err != nil {
 		log.Error("Failed selecting pinned posts: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve pinned posts."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve pinned posts."}
 	}
 	defer rows.Close()
 
@@ -1931,7 +1925,7 @@ func (db *datastore) GetCollections(u *User, hostName string) (*[]Collection, er
 	rows, err := db.Query("SELECT id, alias, title, description, privacy, view_count FROM collections WHERE owner_id = ? ORDER BY id ASC", u.ID)
 	if err != nil {
 		log.Error("Failed selecting from collections: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve user collections."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve user collections."}
 	}
 	defer rows.Close()
 
@@ -1972,7 +1966,7 @@ func (db *datastore) GetPublishableCollections(u *User, hostName string) (*[]Col
 	}
 
 	if len(*c) == 0 {
-		return nil, impart.HTTPError{http.StatusInternalServerError, "You don't seem to have any blogs; they might've moved to another account. Try logging out and logging into your other account."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "You don't seem to have any blogs; they might've moved to another account. Try logging out and logging into your other account."}
 	}
 	return c, nil
 }
@@ -1985,7 +1979,7 @@ func (db *datastore) GetPublicCollections(hostName string) (*[]Collection, error
 	ORDER BY title ASC`)
 	if err != nil {
 		log.Error("Failed selecting public collections: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve public collections."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve public collections."}
 	}
 	defer rows.Close()
 
@@ -2071,7 +2065,7 @@ func (db *datastore) GetTopPosts(u *User, alias string, hostName string) (*[]Pub
 	rows, err := db.Query("SELECT p.id, p.slug, p.view_count, p.title, p.content, c.alias, c.title, c.description, c.view_count FROM posts p LEFT JOIN collections c ON p.collection_id = c.id WHERE p.owner_id = ?"+where+" ORDER BY p.view_count DESC, created DESC LIMIT 25", params...)
 	if err != nil {
 		log.Error("Failed selecting from posts: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve user top posts."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve user top posts."}
 	}
 	defer rows.Close()
 
@@ -2115,7 +2109,7 @@ func (db *datastore) GetTopPosts(u *User, alias string, hostName string) (*[]Pub
 
 	if gotErr && len(posts) == 0 {
 		// There were a lot of errors
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Unable to get data."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to get data."}
 	}
 
 	return &posts, nil
@@ -2136,7 +2130,7 @@ func (db *datastore) GetAnonymousPosts(u *User, page int) (*[]PublicPost, error)
 	rows, err := db.Query("SELECT id, view_count, title, language, created, updated, content FROM posts WHERE owner_id = ? AND collection_id IS NULL ORDER BY created DESC"+limitStr, u.ID)
 	if err != nil {
 		log.Error("Failed selecting from posts: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve user anonymous posts."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve user anonymous posts."}
 	}
 	defer rows.Close()
 
@@ -2164,7 +2158,7 @@ func (db *datastore) GetUserPosts(u *User) (*[]PublicPost, error) {
 	rows, err := db.Query("SELECT p.id, p.slug, p.view_count, p.title, p.created, p.updated, p.content, p.text_appearance, p.language, p.rtl, c.alias, c.title, c.description, c.view_count FROM posts p LEFT JOIN collections c ON collection_id = c.id WHERE p.owner_id = ? ORDER BY created ASC", u.ID)
 	if err != nil {
 		log.Error("Failed selecting from posts: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve user posts."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve user posts."}
 	}
 	defer rows.Close()
 
@@ -2201,7 +2195,7 @@ func (db *datastore) GetUserPosts(u *User) (*[]PublicPost, error) {
 
 	if gotErr && len(posts) == 0 {
 		// There were a lot of errors
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Unable to get data."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to get data."}
 	}
 
 	return &posts, nil
@@ -2232,7 +2226,7 @@ func (db *datastore) ChangeSettings(app *App, u *User, s *userSettings) error {
 		encEmail, err := data.Encrypt(app.keys.EmailKey, s.Email)
 		if err != nil {
 			log.Error("Couldn't encrypt email %s: %s\n", s.Email, err)
-			return impart.HTTPError{http.StatusInternalServerError, "Unable to encrypt email address."}
+			return impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to encrypt email address."}
 		}
 		q.SetBytes(encEmail, "email")
 
@@ -2256,7 +2250,7 @@ func (db *datastore) ChangeSettings(app *App, u *User, s *userSettings) error {
 		}
 		if !author.IsValidUsername(app.cfg, newUsername) {
 			// Ensure the username is syntactically correct.
-			return impart.HTTPError{http.StatusPreconditionFailed, "Username isn't valid."}
+			return impart.HTTPError{Status: http.StatusPreconditionFailed, Message: "Username isn't valid."}
 		}
 
 		t, err := db.Begin()
@@ -2269,7 +2263,7 @@ func (db *datastore) ChangeSettings(app *App, u *User, s *userSettings) error {
 		if err != nil {
 			t.Rollback()
 			if db.isDuplicateKeyErr(err) {
-				return impart.HTTPError{http.StatusConflict, "Username is already taken."}
+				return impart.HTTPError{Status: http.StatusConflict, Message: "Username is already taken."}
 			}
 			log.Error("Unable to update users table: %v", err)
 			return ErrInternalGeneral
@@ -2279,7 +2273,7 @@ func (db *datastore) ChangeSettings(app *App, u *User, s *userSettings) error {
 		if err != nil {
 			t.Rollback()
 			if db.isDuplicateKeyErr(err) {
-				return impart.HTTPError{http.StatusConflict, "Username is already taken."}
+				return impart.HTTPError{Status: http.StatusConflict, Message: "Username is already taken."}
 			}
 			log.Error("Unable to update collection: %v", err)
 			return ErrInternalGeneral
@@ -2312,7 +2306,7 @@ func (db *datastore) ChangeSettings(app *App, u *User, s *userSettings) error {
 		var err error
 		u.HasPass, err = db.IsUserPassSet(u.ID)
 		if err != nil {
-			errPass = impart.HTTPError{http.StatusInternalServerError, "Unable to retrieve user data."}
+			errPass = impart.HTTPError{Status: http.StatusInternalServerError, Message: "Unable to retrieve user data."}
 			return errPass
 		}
 
@@ -2328,13 +2322,13 @@ func (db *datastore) ChangeSettings(app *App, u *User, s *userSettings) error {
 				hashedPass = authUser.HashedPass
 			}
 			if !auth.Authenticated(hashedPass, []byte(s.OldPass)) {
-				errPass = impart.HTTPError{http.StatusUnauthorized, "Incorrect password."}
+				errPass = impart.HTTPError{Status: http.StatusUnauthorized, Message: "Incorrect password."}
 				return errPass
 			}
 		}
 		hashedPass, err := auth.HashPass([]byte(s.NewPass))
 		if err != nil {
-			errPass = impart.HTTPError{http.StatusInternalServerError, "Could not create password hash."}
+			errPass = impart.HTTPError{Status: http.StatusInternalServerError, Message: "Could not create password hash."}
 			return errPass
 		}
 		q.SetBytes(hashedPass, "password")
@@ -2391,7 +2385,7 @@ func (db *datastore) ChangePassphrase(userID int64, sudo bool, curPass string, h
 	}
 
 	if !sudo && !auth.Authenticated(dbPass, []byte(curPass)) {
-		return impart.HTTPError{http.StatusUnauthorized, "Incorrect password."}
+		return impart.HTTPError{Status: http.StatusUnauthorized, Message: "Incorrect password."}
 	}
 
 	_, err = db.Exec("UPDATE users SET password = ? WHERE id = ?", hashedPass, userID)
@@ -2422,7 +2416,7 @@ func (db *datastore) GetCollectionRedirect(alias string) (new string) {
 }
 
 func (db *datastore) DeleteCollection(alias string, userID int64) error {
-	c := &Collection{Alias: alias}
+	c := &Collection{}
 	var username string
 
 	row := db.QueryRow("SELECT username FROM users WHERE id = ?", userID)
@@ -2433,14 +2427,14 @@ func (db *datastore) DeleteCollection(alias string, userID int64) error {
 
 	// Ensure user isn't deleting their main blog
 	if alias == username {
-		return impart.HTTPError{http.StatusForbidden, "You cannot currently delete your primary blog."}
+		return impart.HTTPError{Status: http.StatusForbidden, Message: "You cannot currently delete your primary blog."}
 	}
 
 	row = db.QueryRow("SELECT id FROM collections WHERE alias = ? AND owner_id = ?", alias, userID)
 	err = row.Scan(&c.ID)
 	switch {
 	case err == sql.ErrNoRows:
-		return impart.HTTPError{http.StatusNotFound, "Collection doesn't exist or you're not allowed to delete it."}
+		return impart.HTTPError{Status: http.StatusNotFound, Message: "Collection doesn't exist or you're not allowed to delete it."}
 	case err != nil:
 		log.Error("Failed selecting from collections: %v", err)
 		return ErrInternalGeneral
@@ -2733,7 +2727,7 @@ func (db *datastore) GetUserInvites(userID int64) (*[]Invite, error) {
 	rows, err := db.Query("SELECT id, max_uses, created, expires, inactive FROM userinvites WHERE owner_id = ? ORDER BY created DESC", userID)
 	if err != nil {
 		log.Error("Failed selecting from userinvites: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve user invites."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve user invites."}
 	}
 	defer rows.Close()
 
@@ -2751,7 +2745,7 @@ func (db *datastore) GetUserInvite(id string) (*Invite, error) {
 	err := db.QueryRow("SELECT id, max_uses, created, expires, inactive FROM userinvites WHERE id = ?", id).Scan(&i.ID, &i.MaxUses, &i.Created, &i.Expires, &i.Inactive)
 	switch {
 	case err == sql.ErrNoRows, db.isIgnorableError(err):
-		return nil, impart.HTTPError{http.StatusNotFound, "Invite doesn't exist."}
+		return nil, impart.HTTPError{Status: http.StatusNotFound, Message: "Invite doesn't exist."}
 	case err != nil:
 		log.Error("Failed selecting invite: %v", err)
 		return nil, err
@@ -2806,7 +2800,7 @@ func (db *datastore) GetAllDynamicContent(t string) ([]*instanceContent, error) 
 	rows, err := db.Query("SELECT id, title, content, updated, content_type FROM appcontent"+where, params...)
 	if err != nil {
 		log.Error("Failed selecting from appcontent: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve instance pages."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve instance pages."}
 	}
 	defer rows.Close()
 
@@ -2865,7 +2859,7 @@ func (db *datastore) GetAllUsers(page uint) (*[]User, error) {
 	rows, err := db.Query("SELECT id, username, created, status FROM users ORDER BY created DESC LIMIT " + limitStr)
 	if err != nil {
 		log.Error("Failed selecting from users: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve all users."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve all users."}
 	}
 	defer rows.Close()
 
@@ -3012,7 +3006,7 @@ func (db *datastore) GetOauthAccounts(ctx context.Context, userID int64) ([]oaut
 	rows, err := db.QueryContext(ctx, "SELECT provider, client_id, remote_user_id FROM oauth_users WHERE user_id = ? ", userID)
 	if err != nil {
 		log.Error("Failed selecting from oauth_users: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve user oauth accounts."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve user oauth accounts."}
 	}
 	defer rows.Close()
 
@@ -3239,7 +3233,7 @@ func (db *datastore) DeleteEmailSubscriber(subID, token string) error {
 
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
-		return impart.HTTPError{http.StatusNotFound, "Invalid token, or subscriber doesn't exist"}
+		return impart.HTTPError{Status: http.StatusNotFound, Message: "Invalid token, or subscriber doesn't exist"}
 	}
 	return nil
 }
@@ -3258,7 +3252,7 @@ func (db *datastore) DeleteEmailSubscriberByUser(email string, userID, collID in
 
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
-		return impart.HTTPError{http.StatusNotFound, "Subscriber doesn't exist"}
+		return impart.HTTPError{Status: http.StatusNotFound, Message: "Subscriber doesn't exist"}
 	}
 	return nil
 }
@@ -3346,7 +3340,7 @@ func (db *datastore) GetJobsToRun(action string) ([]*PostJob, error) {
 		ORDER BY created ASC`, action)
 	if err != nil {
 		log.Error("Failed selecting from publishjobs: %v", err)
-		return nil, impart.HTTPError{http.StatusInternalServerError, "Couldn't retrieve publish jobs."}
+		return nil, impart.HTTPError{Status: http.StatusInternalServerError, Message: "Couldn't retrieve publish jobs."}
 	}
 	defer rows.Close()
 

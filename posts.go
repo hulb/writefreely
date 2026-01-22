@@ -337,12 +337,12 @@ func handleViewPost(app *App, w http.ResponseWriter, r *http.Request) error {
 	// Display collection if this is a collection
 	c, _ := app.db.GetCollection(friendlyID)
 	if c != nil {
-		return impart.HTTPError{http.StatusMovedPermanently, fmt.Sprintf("/%s/", friendlyID)}
+		return impart.HTTPError{Status: http.StatusMovedPermanently, Message: fmt.Sprintf("/%s/", friendlyID)}
 	}
 
 	// Normalize the URL, redirecting user to consistent post URL
 	if friendlyID != strings.ToLower(friendlyID) {
-		return impart.HTTPError{http.StatusMovedPermanently, fmt.Sprintf("/%s", strings.ToLower(friendlyID))}
+		return impart.HTTPError{Status: http.StatusMovedPermanently, Message: fmt.Sprintf("/%s", strings.ToLower(friendlyID))}
 	}
 
 	ext := ""
@@ -368,7 +368,7 @@ func handleViewPost(app *App, w http.ResponseWriter, r *http.Request) error {
 
 	fixedID := slug.Make(friendlyID)
 	if fixedID != friendlyID {
-		return impart.HTTPError{http.StatusFound, fmt.Sprintf("/%s%s", fixedID, ext)}
+		return impart.HTTPError{Status: http.StatusFound, Message: fmt.Sprintf("/%s%s", fixedID, ext)}
 	}
 
 	err := app.db.QueryRow("SELECT owner_id, collection_id, title, content, text_appearance, view_count, language, rtl FROM posts WHERE id = ?", friendlyID).Scan(&ownerID, &collectionID, &title, &content, &font, &views, &language, &rtl)
@@ -589,7 +589,7 @@ func newPost(app *App, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if accessToken == "" && u == nil && collAlias != "" {
-		return impart.HTTPError{http.StatusBadRequest, "Parameter `access_token` required."}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: "Parameter `access_token` required."}
 	}
 
 	// Get post data
@@ -637,8 +637,8 @@ func newPost(app *App, w http.ResponseWriter, r *http.Request) error {
 			Title:    &title,
 			Content:  &post,
 			Font:     appearance,
-			IsRTL:    converter.NullJSONBool{sql.NullBool{Bool: isRTL, Valid: rtlValid}},
-			Language: converter.NullJSONString{sql.NullString{String: langValue, Valid: langValue != ""}},
+			IsRTL:    converter.NullJSONBool{NullBool: sql.NullBool{Bool: isRTL, Valid: rtlValid}},
+			Language: converter.NullJSONString{NullString: sql.NullString{String: langValue, Valid: langValue != ""}},
 		}
 	}
 	if !p.isFontValid() {
@@ -858,7 +858,7 @@ func deletePost(app *App, w http.ResponseWriter, r *http.Request) error {
 		err = app.db.QueryRow("SELECT 1 FROM posts WHERE id = ?", friendlyID).Scan(&dummy)
 		switch {
 		case err == sql.ErrNoRows:
-			return impart.HTTPError{http.StatusNotFound, "Post not found."}
+			return impart.HTTPError{Status: http.StatusNotFound, Message: "Post not found."}
 		}
 		err = app.db.QueryRow("SELECT 1 FROM posts WHERE id = ? AND owner_id IS NULL", friendlyID).Scan(&dummy)
 		switch {
@@ -866,7 +866,7 @@ func deletePost(app *App, w http.ResponseWriter, r *http.Request) error {
 			// Post already has an owner. This could provide a bad experience
 			// for the user, but it's more important to ensure data isn't lost
 			// unexpectedly. So prevent deletion via token.
-			return impart.HTTPError{http.StatusConflict, "This post belongs to some user (hopefully yours). Please log in and delete it from that user's account."}
+			return impart.HTTPError{Status: http.StatusConflict, Message: "This post belongs to some user (hopefully yours). Please log in and delete it from that user's account."}
 		}
 		res, err = app.db.Exec("DELETE FROM posts WHERE id = ? AND modify_token = ? AND owner_id IS NULL", friendlyID, editToken)
 	} else if accessToken != "" || u != nil {
@@ -917,7 +917,7 @@ func deletePost(app *App, w http.ResponseWriter, r *http.Request) error {
 			res, err = t.Exec("DELETE FROM posts WHERE id = ? AND owner_id = ?", friendlyID, ownerID)
 		}
 	} else {
-		return impart.HTTPError{http.StatusBadRequest, "No authenticated user or post token given."}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: "No authenticated user or post token given."}
 	}
 	if err != nil {
 		return err
@@ -935,7 +935,7 @@ func deletePost(app *App, w http.ResponseWriter, r *http.Request) error {
 			t.Rollback()
 			log.Error("No rows affected! Rolling back")
 		}
-		return impart.HTTPError{http.StatusForbidden, "Post not found, or you're not the owner."}
+		return impart.HTTPError{Status: http.StatusForbidden, Message: "Post not found, or you're not the owner."}
 	}
 	if t != nil {
 		t.Commit()
@@ -1170,7 +1170,7 @@ func fetchPost(app *App, w http.ResponseWriter, r *http.Request) error {
 		if coll == nil {
 			// This is a draft post; 404 for now
 			// TODO: return ActivityObject
-			return impart.HTTPError{http.StatusNotFound, ""}
+			return impart.HTTPError{Status: http.StatusNotFound, Message: ""}
 		}
 
 		p.Collection = &CollectionObj{Collection: *coll}
@@ -1491,7 +1491,7 @@ func viewCollectionPost(app *App, w http.ResponseWriter, r *http.Request) error 
 		if !app.cfg.App.SingleUser {
 			loc = "/" + cr.alias + loc
 		}
-		return impart.HTTPError{http.StatusMovedPermanently, loc}
+		return impart.HTTPError{Status: http.StatusMovedPermanently, Message: loc}
 	}
 
 	// Display collection if this is a collection
@@ -1507,7 +1507,7 @@ func viewCollectionPost(app *App, w http.ResponseWriter, r *http.Request) error 
 				// Redirect if necessary
 				newAlias := app.db.GetCollectionRedirect(cr.alias)
 				if newAlias != "" {
-					return impart.HTTPError{http.StatusFound, "/" + newAlias + "/" + slug}
+					return impart.HTTPError{Status: http.StatusFound, Message: "/" + newAlias + "/" + slug}
 				}
 			}
 		}
@@ -1528,7 +1528,7 @@ func viewCollectionPost(app *App, w http.ResponseWriter, r *http.Request) error 
 		if silenced {
 			return ErrPostNotFound
 		} else if !isAuthorizedForCollection(app, c.Alias, r) {
-			return impart.HTTPError{http.StatusFound, c.CanonicalURL() + "/?g=" + slug}
+			return impart.HTTPError{Status: http.StatusFound, Message: c.CanonicalURL() + "/?g=" + slug}
 		}
 	}
 
@@ -1558,11 +1558,11 @@ func viewCollectionPost(app *App, w http.ResponseWriter, r *http.Request) error 
 			if slug == "feed" {
 				// User tried to access blog feed without a trailing slash, and
 				// there's no post with a slug "feed"
-				return impart.HTTPError{http.StatusFound, c.CanonicalURL() + "feed/"}
+				return impart.HTTPError{Status: http.StatusFound, Message: c.CanonicalURL() + "feed/"}
 			} else if slug == "archive" {
 				// User tried to access blog Archive without a trailing slash, and
 				// there's no post with a slug "archive"
-				return impart.HTTPError{http.StatusFound, c.CanonicalURL() + "archive/"}
+				return impart.HTTPError{Status: http.StatusFound, Message: c.CanonicalURL() + "archive/"}
 			}
 
 			po := &Post{
@@ -1593,7 +1593,7 @@ Are you sure it was ever here?` + shortCodeNoSig,
 
 	// Check if post has been unpublished
 	if p.Content == "" && p.Title.String == "" {
-		return impart.HTTPError{http.StatusGone, "Post was unpublished."}
+		return impart.HTTPError{Status: http.StatusGone, Message: "Post was unpublished."}
 	}
 
 	p.augmentContent()

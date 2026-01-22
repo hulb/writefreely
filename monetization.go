@@ -13,14 +13,15 @@ package writefreely
 import (
 	"bytes"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/writeas/impart"
-	"github.com/writeas/web-core/log"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/gorilla/mux"
+	"github.com/writeas/impart"
+	"github.com/writeas/web-core/log"
 )
 
 func displayMonetization(monetization, alias string) string {
@@ -64,7 +65,7 @@ func handleSPSPEndpoint(app *App, w http.ResponseWriter, r *http.Request) error 
 
 	pointer := c.Monetization
 	if pointer == "" {
-		err := impart.HTTPError{http.StatusNotFound, "No monetization pointer."}
+		err := impart.HTTPError{Status: http.StatusNotFound, Message: "No monetization pointer."}
 		return err
 	}
 
@@ -95,7 +96,7 @@ func handleGetSplitContent(app *App, w http.ResponseWriter, r *http.Request) err
 
 	receipt := r.FormValue("receipt")
 	if receipt == "" {
-		return impart.HTTPError{http.StatusBadRequest, "No `receipt` given."}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: "No `receipt` given."}
 	}
 	err = verifyReceipt(receipt, collLookupID)
 	if err != nil {
@@ -154,7 +155,7 @@ func verifyReceipt(receipt, id string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		log.Error("Bad response from %s:\nStatus: %d\n%s", receiptsHost, resp.StatusCode, string(body))
-		return impart.HTTPError{resp.StatusCode, string(body)}
+		return impart.HTTPError{Status: resp.StatusCode, Message: string(body)}
 	}
 	return nil
 }

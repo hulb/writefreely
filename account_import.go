@@ -23,7 +23,7 @@ func viewImport(app *App, u *User, w http.ResponseWriter, r *http.Request) error
 
 	c, err := app.db.GetCollections(u, app.Config().App.Host)
 	if err != nil {
-		return impart.HTTPError{http.StatusInternalServerError, fmt.Sprintf("unable to fetch collections: %v", err)}
+		return impart.HTTPError{Status: http.StatusInternalServerError, Message: fmt.Sprintf("unable to fetch collections: %v", err)}
 	}
 
 	d := struct {
@@ -82,7 +82,7 @@ func handleImport(app *App, u *User, w http.ResponseWriter, r *http.Request) err
 	err = json.Unmarshal([]byte(r.FormValue("fileDates")), &fileDates)
 	if err != nil {
 		log.Error("invalid form data for file dates: %v", err)
-		return impart.HTTPError{http.StatusBadRequest, "form data for file dates was invalid"}
+		return impart.HTTPError{Status: http.StatusBadRequest, Message: "form data for file dates was invalid"}
 	}
 	files := r.MultipartForm.File["files"]
 	var fileErrs []error
@@ -190,5 +190,5 @@ func handleImport(app *App, u *User, w http.ResponseWriter, r *http.Request) err
 	} else if filesImported > 0 {
 		_ = addSessionFlash(app, w, r, fmt.Sprintf("INFO: %d of %d posts imported, see details below.", filesImported, filesSubmitted), nil)
 	}
-	return impart.HTTPError{http.StatusFound, "/me/import"}
+	return impart.HTTPError{Status: http.StatusFound, Message: "/me/import"}
 }

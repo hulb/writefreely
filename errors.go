@@ -18,46 +18,46 @@ import (
 
 // Commonly returned HTTP errors
 var (
-	ErrBadFormData    = impart.HTTPError{http.StatusBadRequest, "Expected valid form data."}
-	ErrBadJSON        = impart.HTTPError{http.StatusBadRequest, "Expected valid JSON object."}
-	ErrBadJSONArray   = impart.HTTPError{http.StatusBadRequest, "Expected valid JSON array."}
-	ErrBadAccessToken = impart.HTTPError{http.StatusUnauthorized, "Invalid access token."}
-	ErrNoAccessToken  = impart.HTTPError{http.StatusBadRequest, "Authorization token required."}
-	ErrNotLoggedIn    = impart.HTTPError{http.StatusUnauthorized, "Not logged in."}
+	ErrBadFormData    = impart.HTTPError{Status: http.StatusBadRequest, Message: "Expected valid form data."}
+	ErrBadJSON        = impart.HTTPError{Status: http.StatusBadRequest, Message: "Expected valid JSON object."}
+	ErrBadJSONArray   = impart.HTTPError{Status: http.StatusBadRequest, Message: "Expected valid JSON array."}
+	ErrBadAccessToken = impart.HTTPError{Status: http.StatusUnauthorized, Message: "Invalid access token."}
+	ErrNoAccessToken  = impart.HTTPError{Status: http.StatusBadRequest, Message: "Authorization token required."}
+	ErrNotLoggedIn    = impart.HTTPError{Status: http.StatusUnauthorized, Message: "Not logged in."}
 
-	ErrForbiddenCollection        = impart.HTTPError{http.StatusForbidden, "You don't have permission to add to this collection."}
-	ErrForbiddenCollectionAccess  = impart.HTTPError{http.StatusForbidden, "You don't have permission to access this collection."}
-	ErrForbiddenEditPost          = impart.HTTPError{http.StatusForbidden, "You don't have permission to update this post."}
-	ErrUnauthorizedEditPost       = impart.HTTPError{http.StatusUnauthorized, "Invalid editing credentials."}
-	ErrUnauthorizedGeneral        = impart.HTTPError{http.StatusUnauthorized, "You don't have permission to do that."}
-	ErrBadRequestedType           = impart.HTTPError{http.StatusNotAcceptable, "Bad requested Content-Type."}
-	ErrCollectionUnauthorizedRead = impart.HTTPError{http.StatusUnauthorized, "You don't have permission to access this collection."}
+	ErrForbiddenCollection        = impart.HTTPError{Status: http.StatusForbidden, Message: "You don't have permission to add to this collection."}
+	ErrForbiddenCollectionAccess  = impart.HTTPError{Status: http.StatusForbidden, Message: "You don't have permission to access this collection."}
+	ErrForbiddenEditPost          = impart.HTTPError{Status: http.StatusForbidden, Message: "You don't have permission to update this post."}
+	ErrUnauthorizedEditPost       = impart.HTTPError{Status: http.StatusUnauthorized, Message: "Invalid editing credentials."}
+	ErrUnauthorizedGeneral        = impart.HTTPError{Status: http.StatusUnauthorized, Message: "You don't have permission to do that."}
+	ErrBadRequestedType           = impart.HTTPError{Status: http.StatusNotAcceptable, Message: "Bad requested Content-Type."}
+	ErrCollectionUnauthorizedRead = impart.HTTPError{Status: http.StatusUnauthorized, Message: "You don't have permission to access this collection."}
 
-	ErrNoPublishableContent = impart.HTTPError{http.StatusBadRequest, "Supply something to publish."}
+	ErrNoPublishableContent = impart.HTTPError{Status: http.StatusBadRequest, Message: "Supply something to publish."}
 
-	ErrInternalGeneral       = impart.HTTPError{http.StatusInternalServerError, "The humans messed something up. They've been notified."}
-	ErrInternalCookieSession = impart.HTTPError{http.StatusInternalServerError, "Could not get cookie session."}
+	ErrInternalGeneral       = impart.HTTPError{Status: http.StatusInternalServerError, Message: "The humans messed something up. They've been notified."}
+	ErrInternalCookieSession = impart.HTTPError{Status: http.StatusInternalServerError, Message: "Could not get cookie session."}
 
-	ErrUnavailable = impart.HTTPError{http.StatusServiceUnavailable, "Service temporarily unavailable due to high load."}
+	ErrUnavailable = impart.HTTPError{Status: http.StatusServiceUnavailable, Message: "Service temporarily unavailable due to high load."}
 
-	ErrCollectionNotFound     = impart.HTTPError{http.StatusNotFound, "Collection doesn't exist."}
-	ErrCollectionGone         = impart.HTTPError{http.StatusGone, "This blog was unpublished."}
-	ErrCollectionPageNotFound = impart.HTTPError{http.StatusNotFound, "Collection page doesn't exist."}
+	ErrCollectionNotFound     = impart.HTTPError{Status: http.StatusNotFound, Message: "Collection doesn't exist."}
+	ErrCollectionGone         = impart.HTTPError{Status: http.StatusGone, Message: "This blog was unpublished."}
+	ErrCollectionPageNotFound = impart.HTTPError{Status: http.StatusNotFound, Message: "Collection page doesn't exist."}
 	ErrPostNotFound           = impart.HTTPError{Status: http.StatusNotFound, Message: "Post not found."}
 	ErrPostBanned             = impart.HTTPError{Status: http.StatusGone, Message: "Post removed."}
 	ErrPostUnpublished        = impart.HTTPError{Status: http.StatusGone, Message: "Post unpublished by author."}
 	ErrPostFetchError         = impart.HTTPError{Status: http.StatusInternalServerError, Message: "We encountered an error getting the post. The humans have been alerted."}
 
-	ErrUserNotFound       = impart.HTTPError{http.StatusNotFound, "User doesn't exist."}
-	ErrRemoteUserNotFound = impart.HTTPError{http.StatusNotFound, "Remote user not found."}
-	ErrUserNotFoundEmail  = impart.HTTPError{http.StatusNotFound, "Please enter your username instead of your email address."}
+	ErrUserNotFound       = impart.HTTPError{Status: http.StatusNotFound, Message: "User doesn't exist."}
+	ErrRemoteUserNotFound = impart.HTTPError{Status: http.StatusNotFound, Message: "Remote user not found."}
+	ErrUserNotFoundEmail  = impart.HTTPError{Status: http.StatusNotFound, Message: "Please enter your username instead of your email address."}
 
-	ErrUserSilenced = impart.HTTPError{http.StatusForbidden, "Account is silenced."}
+	ErrUserSilenced = impart.HTTPError{Status: http.StatusForbidden, Message: "Account is silenced."}
 
-	ErrDisabledPasswordAuth = impart.HTTPError{http.StatusForbidden, "Password authentication is disabled."}
+	ErrDisabledPasswordAuth = impart.HTTPError{Status: http.StatusForbidden, Message: "Password authentication is disabled."}
 )
 
 // Post operation errors
 var (
-	ErrPostNoUpdatableVals = impart.HTTPError{http.StatusBadRequest, "Supply some properties to update."}
+	ErrPostNoUpdatableVals = impart.HTTPError{Status: http.StatusBadRequest, Message: "Supply some properties to update."}
 )
